@@ -1,0 +1,6 @@
+/* Tailwind CSS is handled by twrnc for React Native Web */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}

@@ -1,0 +1,5 @@
+{
+  "name": "ETV Manager",
+  "description": "Una aplicación para asignar y dar seguimiento a trabajos de fumigación y abatización.",
+  "requestFramePermissions": []
+}
