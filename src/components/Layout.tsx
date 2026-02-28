@@ -17,19 +17,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <SafeAreaView style={tw`flex-1 h-screen bg-gray-50`}>
+    <SafeAreaView style={tw`flex-1 bg-gray-50`}>
       {/* Header */}
-      <View style={tw`bg-blue-600 pt-12 pb-4 px-4 shadow-md z-10`}>
+      <View style={tw`bg-blue-600 pt-12 pb-4 px-4 z-20`}>
         <Text style={tw`text-xl font-bold text-center text-white`}>Gestor Brigadas</Text>
       </View>
       
-      {/* Main Content */}
-      <ScrollView style={tw`flex-1 p-4 mb-20`}>
-        {children}
-      </ScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={tw`absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex-row justify-around items-center h-16 pb-2`}>
+      {/* Top Navigation - Fixed under header */}
+      <View style={tw`bg-white border-b border-gray-200 flex-row justify-around items-center h-16 shadow-sm z-20`}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -40,8 +35,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               style={{ textDecoration: 'none', flex: 1 }}
             >
               <View style={tw`items-center justify-center w-full h-full`}>
-                <Icon size={24} color={isActive ? "#2563eb" : "#6b7280"} strokeWidth={isActive ? 2.5 : 2} />
-                <Text style={tw`text-xs font-medium ${isActive ? "text-blue-600" : "text-gray-500"}`}>
+                <Icon size={22} color={isActive ? "#2563eb" : "#6b7280"} strokeWidth={isActive ? 2.5 : 2} />
+                <Text style={tw`text-[10px] font-medium mt-1 ${isActive ? "text-blue-600" : "text-gray-500"}`}>
                   {item.label}
                 </Text>
               </View>
@@ -49,6 +44,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           );
         })}
       </View>
+
+      {/* Main Content Area */}
+      <ScrollView 
+        style={tw`flex-1`}
+        contentContainerStyle={tw`p-4 pb-8`}
+      >
+        {children}
+      </ScrollView>
     </SafeAreaView>
   );
 }

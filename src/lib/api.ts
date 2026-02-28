@@ -81,6 +81,21 @@ export const api = {
   },
 
   // Croquis
+  getAllCroquis: async () => {
+    try {
+      const q = query(collection(db, "croquis"), orderBy("updatedAt", "desc"));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        elements: JSON.parse(d.data().data)
+      }));
+      syncLocal('all_croquis', data);
+      return data;
+    } catch (e) {
+      return getLocal('all_croquis');
+    }
+  },
   getCroquis: async () => {
     try {
       const q = query(collection(db, "croquis"), orderBy("updatedAt", "desc"));
@@ -97,18 +112,39 @@ export const api = {
       return local ? JSON.parse(local) : null;
     }
   },
-  saveCroquis: async (nombre: string, elements: any[]) => {
+  saveCroquis: async (nombre: string, elements: any[], id?: string) => {
     try {
-      await addDoc(collection(db, "croquis"), {
+      const payload = {
         nombre,
         data: JSON.stringify(elements),
         updatedAt: new Date().toISOString()
-      });
-      localStorage.setItem('croquis', JSON.stringify(elements));
+      };
+      if (id) {
+        await updateDoc(doc(db, "croquis", id), payload);
+      } else {
+        await addDoc(collection(db, "croquis"), payload);
+      }
       return true;
     } catch (e) {
       console.error(e);
-      localStorage.setItem('croquis', JSON.stringify(elements));
+      return false;
+    }
+  },
+  deleteCroquis: async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "croquis", id));
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  },
+  renameCroquis: async (id: string, nombre: string) => {
+    try {
+      await updateDoc(doc(db, "croquis", id), { nombre, updatedAt: new Date().toISOString() });
+      return true;
+    } catch (e) {
+      console.error(e);
       return false;
     }
   }

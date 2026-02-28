@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TouchableOpacity, TextInput, ScrollView } from "react-native";
 import { Stage, Layer, Line, Circle, Rect, Text as KonvaText, Group } from "react-konva";
-import { Trash2, MousePointer, PenTool, Square, Circle as CircleIcon, Map as MapIcon, Save, ZoomIn, ZoomOut, Move, Undo, Redo, XCircle, MapPin } from "lucide-react";
+import { Trash2, MousePointer, PenTool, Square, Circle as CircleIcon, Map as MapIcon, Save, ZoomIn, ZoomOut, Move, Undo, Redo, XCircle, MapPin, Plus, Edit2, ChevronLeft } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
 
@@ -16,10 +16,11 @@ interface Element {
   y?: number;
   data: {
     label?: string;
+    blockNumber?: string; // New: Manual block number
     inhabitants?: string;
     houseCount?: string;
     streetType?: 'calle' | 'carretera' | 'camino';
-    referenceType?: 'tienda' | 'escuela' | 'parque' | 'iglesia' | 'otro'; // New property
+    referenceType?: 'tienda' | 'escuela' | 'parque' | 'iglesia' | 'otro';
   };
   style?: {
     stroke?: string;
@@ -30,6 +31,13 @@ interface Element {
 }
 
 export default function Croquis() {
+  const [viewMode, setViewMode] = useState<'list' | 'edit'>('list');
+  const [croquisList, setCroquisList] = useState<any[]>([]);
+  const [currentCroquisId, setCurrentCroquisId] = useState<string | null>(null);
+  const [currentCroquisName, setCurrentCroquisName] = useState("Nuevo Croquis");
+  const [croquisToDelete, setCroquisToDelete] = useState<string | null>(null);
+  const [croquisToRename, setCroquisToRename] = useState<{id: string, name: string} | null>(null);
+
   const [elements, setElements] = useState<Element[]>([]);
   const [tool, setTool] = useState<ToolType>('select');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -37,38 +45,159 @@ export default function Croquis() {
   const [stageScale, setStageScale] = useState(1);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
   const [loading, setLoading] = useState(false);
+  const [cursorPos, setCursorPos] = useState<{x: number, y: number} | null>(null);
   
   // Properties form state
   const [propLabel, setPropLabel] = useState("");
+  const [propBlockNumber, setPropBlockNumber] = useState(""); // New
   const [propInhabitants, setPropInhabitants] = useState("");
   const [propHouseCount, setPropHouseCount] = useState("");
 
+  const [stageDimensions, setStageDimensions] = useState({ width: 800, height: 600 });
+
   const stageRef = useRef<any>(null);
+  const previousToolRef = useRef<ToolType>('select');
+  const isSpacePressedRef = useRef(false);
 
   const [history, setHistory] = useState<Element[][]>([]);
   const [historyStep, setHistoryStep] = useState(-1);
 
   useEffect(() => {
-    loadCroquis();
-  }, []);
+    if (viewMode === 'list') {
+      loadCroquisList();
+    }
+  }, [viewMode]);
 
-  const loadCroquis = async () => {
+  const loadCroquisList = async () => {
+    setLoading(true);
     try {
-      const data = await api.getCroquis();
-      if (data) {
-        setElements(data);
-      }
+      const data = await api.getAllCroquis();
+      setCroquisList(data || []);
     } catch (e) {
-      console.error("Error loading croquis:", e);
+      console.error("Error loading croquis list:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleCreateNew = () => {
+    setCurrentCroquisId(null);
+    setCurrentCroquisName("Nuevo Croquis");
+    setElements([]);
+    setHistory([]);
+    setHistoryStep(-1);
+    setViewMode('edit');
+  };
+
+  const handleEdit = (croquis: any) => {
+    setCurrentCroquisId(croquis.id);
+    setCurrentCroquisName(croquis.nombre);
+    setElements(croquis.elements || []);
+    setHistory([croquis.elements || []]);
+    setHistoryStep(0);
+    setViewMode('edit');
+  };
+
+  const handleDelete = async (id: string) => {
+    setCroquisToDelete(id);
+  };
+
+  const confirmDelete = async () => {
+    if (croquisToDelete) {
+      setLoading(true);
+      await api.deleteCroquis(croquisToDelete);
+      await loadCroquisList();
+      setCroquisToDelete(null);
+      setLoading(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setCroquisToDelete(null);
+  };
+
+  const handleRename = (croquis: any) => {
+    setCroquisToRename({ id: croquis.id, name: croquis.nombre });
+  };
+
+  const confirmRename = async () => {
+    if (croquisToRename && croquisToRename.name.trim()) {
+      setLoading(true);
+      await api.renameCroquis(croquisToRename.id, croquisToRename.name.trim());
+      await loadCroquisList();
+      setCroquisToRename(null);
+      setLoading(false);
+    }
+  };
+
+  const cancelRename = () => {
+    setCroquisToRename(null);
+  };
+
+  useEffect(() => {
+    if (viewMode !== 'edit') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        isSpacePressedRef.current = true;
+        setTool(prev => {
+          if (prev !== 'pan') {
+            previousToolRef.current = prev;
+          }
+          return 'pan';
+        });
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        isSpacePressedRef.current = false;
+        setTool(previousToolRef.current);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [viewMode]);
+
+  const onLayout = (event: any) => {
+    const { width, height } = event.nativeEvent.layout;
+    setStageDimensions({ width, height });
+  };
+
+  // Update form state when selection changes
+  useEffect(() => {
+    if (selectedId) {
+      const el = elements.find(e => e.id === selectedId);
+      if (el) {
+        setPropLabel(el.data.label || "");
+        setPropBlockNumber(el.data.blockNumber || "");
+        setPropInhabitants(el.data.inhabitants || "");
+      }
+    }
+  }, [selectedId]);
+
   const saveCroquis = async () => {
+    if (!currentCroquisName.trim()) {
+      alert("Por favor, ingresa un nombre para el croquis.");
+      return;
+    }
     setLoading(true);
     try {
-      const success = await api.saveCroquis("Mi Croquis", elements);
+      const success = await api.saveCroquis(currentCroquisName, elements, currentCroquisId || undefined);
       if (success) {
         alert("Croquis guardado exitosamente.");
+        setViewMode('list');
       } else {
         alert("Error al guardar croquis.");
       }
@@ -78,6 +207,35 @@ export default function Croquis() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Centroid calculation for polygons
+  const getCentroid = (points: number[]) => {
+    if (!points || points.length < 6) return { x: points[0] || 0, y: points[1] || 0 };
+    
+    let area = 0;
+    let cx = 0;
+    let cy = 0;
+    
+    for (let i = 0; i < points.length; i += 2) {
+      const x1 = points[i];
+      const y1 = points[i + 1];
+      const x2 = points[(i + 2) % points.length];
+      const y2 = points[(i + 3) % points.length];
+      
+      const common = x1 * y2 - x2 * y1;
+      area += common;
+      cx += (x1 + x2) * common;
+      cy += (y1 + y2) * common;
+    }
+    
+    area /= 2;
+    if (area === 0) return { x: points[0], y: points[1] };
+    
+    return {
+      x: cx / (6 * area),
+      y: cy / (6 * area)
+    };
   };
 
   // Save history on change
@@ -131,6 +289,18 @@ export default function Croquis() {
       if (intersect) inside = !inside;
     }
     return inside;
+  };
+
+  const isManzanaInAnyBarrio = (manzanaEl: Element) => {
+    if (!manzanaEl.points || manzanaEl.points.length < 2) return false;
+    const x = manzanaEl.points[0];
+    const y = manzanaEl.points[1];
+    
+    return elements.some(el => 
+      el.type === 'barrio' && 
+      el.points && 
+      isPointInPolygon(x, y, el.points)
+    );
   };
 
   // Función para encontrar el punto más cercano de una calle existente (Snapping)
@@ -221,12 +391,6 @@ export default function Croquis() {
         const m = manzanas[i];
         if (m.points && isPointInPolygon(x, y, m.points)) {
           parentManzanaId = m.id;
-          // Contar cuántas casas hay YA en esta manzana específica
-          // Esto requiere que guardemos la referencia de la manzana en la casa, 
-          // o calculemos dinámicamente. Para simplicidad, calculamos dinámicamente basado en posición.
-          
-          // NOTA: Para un sistema robusto, deberíamos guardar 'manzanaId' en 'data' de la vivienda.
-          // Aquí haremos un conteo simple de las que ya están dentro.
           const housesInThisManzana = elements.filter(el => 
             el.type === 'vivienda' && isPointInPolygon(el.x!, el.y!, m.points!)
           ).length;
@@ -236,7 +400,6 @@ export default function Croquis() {
         }
       }
 
-      // Si no está en ninguna manzana, usamos un contador global o reiniciamos
       if (!parentManzanaId) {
          houseNumber = elements.filter(e => e.type === 'vivienda').length + 1;
       }
@@ -248,13 +411,10 @@ export default function Croquis() {
         y,
         data: { 
           label: houseNumber.toString(),
-          // Guardamos referencia a la manzana si existe (opcional, útil para futuro)
-          // parentManzana: parentManzanaId 
         },
         style: { fill: '#ef4444', stroke: '#991b1b', strokeWidth: 1 }
       };
       setElements(prev => [...prev, newElement]);
-      // No cambiamos a 'select' para permitir poner múltiples casas rápido
     } else if (tool === 'reference') {
       const newElement: Element = {
         id: `ref-${Date.now()}`,
@@ -270,7 +430,6 @@ export default function Croquis() {
   };
 
   const handleFinishDrawing = () => {
-    // Si no hay suficientes puntos para una línea/polígono, no hacemos nada
     if (currentPoints.length < 4 && tool !== 'vivienda') {
       setCurrentPoints([]);
       return;
@@ -283,16 +442,20 @@ export default function Croquis() {
       newElement = {
         id,
         type: 'street',
-        points: [...currentPoints], // Copia profunda
+        points: [...currentPoints],
         data: { label: 'Calle' },
         style: { stroke: '#4b5563', strokeWidth: 20 }
       };
     } else if (tool === 'manzana') {
+      const nextNum = elements.filter(e => e.type === 'manzana').length + 1;
       newElement = {
         id,
         type: 'manzana',
         points: [...currentPoints],
-        data: { label: `M-${elements.filter(e => e.type === 'manzana').length + 1}` },
+        data: { 
+          label: `Manzana`,
+          blockNumber: nextNum.toString()
+        },
         style: { stroke: '#1f2937', strokeWidth: 2, fill: 'rgba(209, 213, 219, 0.5)' }
       };
     } else if (tool === 'barrio') {
@@ -309,18 +472,10 @@ export default function Croquis() {
       setElements(prev => [...prev, newElement!]);
     }
     setCurrentPoints([]);
-    // No cambiamos a 'select' automáticamente aquí para permitir dibujo continuo si se desea,
-    // o si se llama desde cambio de herramienta.
   };
 
   // Efecto para guardar dibujo pendiente al cambiar de herramienta
   useEffect(() => {
-    if (currentPoints.length >= 4) {
-       // Intentar guardar lo que se estaba dibujando antes de cambiar
-       // Necesitamos saber qué herramienta ERA la activa, pero como el estado ya cambió,
-       // esto es complejo. Mejor estrategia:
-       // Al hacer click en una herramienta nueva, PRIMERO llamamos a finishDrawing con la herramienta ANTERIOR.
-    }
     setCurrentPoints([]); // Limpiar puntos pendientes al cambiar herramienta
   }, [tool]);
 
@@ -336,7 +491,6 @@ export default function Croquis() {
   }, [currentPoints, tool, elements]);
 
   const changeTool = (newTool: ToolType) => {
-    // Si hay un dibujo en progreso con suficientes puntos, guárdalo con la herramienta ACTUAL antes de cambiar
     if (currentPoints.length >= 4) {
         handleFinishDrawing(); 
     }
@@ -363,7 +517,6 @@ export default function Croquis() {
 
     let newElements = elements.filter(e => e.id !== selectedId);
 
-    // Si eliminamos una manzana, eliminar también sus viviendas
     if (selectedElement.type === 'manzana' && selectedElement.points) {
       const housesInManzana = elements.filter(el => 
         el.type === 'vivienda' && isPointInPolygon(el.x!, el.y!, selectedElement.points!)
@@ -372,33 +525,27 @@ export default function Croquis() {
       newElements = newElements.filter(e => !houseIds.includes(e.id));
     }
 
-    // Si eliminamos una vivienda, reordenar las restantes de la misma manzana
     if (selectedElement.type === 'vivienda') {
-      // Encontrar la manzana a la que pertenecía
       const parentManzana = elements.find(m => 
         m.type === 'manzana' && m.points && isPointInPolygon(selectedElement.x!, selectedElement.y!, m.points)
       );
 
       if (parentManzana && parentManzana.points) {
-        // Encontrar todas las viviendas que quedan en esa manzana
         const siblings = newElements.filter(el => 
           el.type === 'vivienda' && isPointInPolygon(el.x!, el.y!, parentManzana.points!)
         );
 
-        // Ordenarlas por su etiqueta actual (asumiendo que son números)
         siblings.sort((a, b) => {
           const nA = parseInt(a.data.label || '0', 10);
           const nB = parseInt(b.data.label || '0', 10);
           return nA - nB;
         });
 
-        // Crear mapa de actualizaciones
         const updates = new Map();
         siblings.forEach((house, index) => {
           updates.set(house.id, (index + 1).toString());
         });
 
-        // Aplicar actualizaciones
         newElements = newElements.map(el => {
           if (updates.has(el.id)) {
             return {
@@ -422,47 +569,210 @@ export default function Croquis() {
     { id: 'manzana', icon: Square, label: 'Manzana' },
     { id: 'vivienda', icon: CircleIcon, label: 'Vivienda' },
     { id: 'barrio', icon: MapIcon, label: 'Barrio' },
+    { id: 'reference', icon: MapPin, label: 'Punto de Ref' },
   ];
 
-  return (
-    <View style={tw`flex-1 flex-row h-full bg-gray-100`}>
-      {/* Toolbar */}
-      <View style={tw`w-20 bg-white border-r border-gray-200 items-center py-4 gap-2 shadow-sm z-10`}>
-        {Tools.map((t) => (
+  if (viewMode === 'list') {
+    return (
+      <View style={tw`flex-1 bg-gray-50 p-6`}>
+        <View style={tw`flex-row justify-between items-center mb-6`}>
+          <Text style={tw`text-2xl font-bold text-gray-800`}>Mis Croquis</Text>
           <TouchableOpacity
-            key={t.id}
-            onPress={() => changeTool(t.id as ToolType)}
-            style={tw`p-2 rounded-lg items-center justify-center w-16 ${tool === t.id ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
+            onPress={handleCreateNew}
+            style={tw`bg-blue-600 px-4 py-2 rounded-lg flex-row items-center shadow-sm`}
           >
-            <t.icon size={20} color={tool === t.id ? '#2563eb' : '#4b5563'} />
-            <Text style={tw`text-[9px] text-center mt-1 text-gray-600 leading-tight`}>{t.label}</Text>
+            <Plus size={20} color="#fff" style={tw`mr-2`} />
+            <Text style={tw`text-white font-bold`}>Crear Nuevo</Text>
           </TouchableOpacity>
-        ))}
-        
-        <View style={tw`h-px w-10 bg-gray-200 my-2`} />
-        
-        <TouchableOpacity onPress={() => setStageScale(s => s * 1.2)} style={tw`p-2`}>
-          <ZoomIn size={20} color="#4b5563" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setStageScale(s => s / 1.2)} style={tw`p-2`}>
-          <ZoomOut size={20} color="#4b5563" />
-        </TouchableOpacity>
-        
-        <View style={tw`h-px w-10 bg-gray-200 my-2`} />
+        </View>
 
-        <TouchableOpacity onPress={undo} disabled={historyStep < 0} style={tw`p-2 opacity-${historyStep < 0 ? '50' : '100'}`}>
-          <Undo size={20} color="#4b5563" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={redo} disabled={historyStep >= history.length - 1} style={tw`p-2 opacity-${historyStep >= history.length - 1 ? '50' : '100'}`}>
-          <Redo size={20} color="#4b5563" />
+        {loading ? (
+          <Text style={tw`text-center text-gray-500 mt-10`}>Cargando croquis...</Text>
+        ) : croquisList.length === 0 ? (
+          <View style={tw`bg-white p-8 rounded-xl items-center shadow-sm border border-gray-100 mt-10`}>
+            <MapIcon size={48} color="#9ca3af" style={tw`mb-4`} />
+            <Text style={tw`text-lg font-medium text-gray-700 mb-2`}>No hay croquis guardados</Text>
+            <Text style={tw`text-gray-500 text-center mb-6`}>Crea tu primer croquis para empezar a asignar trabajos.</Text>
+            <TouchableOpacity
+              onPress={handleCreateNew}
+              style={tw`bg-blue-100 px-6 py-3 rounded-lg border border-blue-200`}
+            >
+              <Text style={tw`text-blue-700 font-bold`}>Crear Croquis</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <ScrollView>
+            <View style={tw`flex-row flex-wrap gap-4`}>
+              {croquisList.map((croquis) => (
+                <View key={croquis.id} style={tw`bg-white p-5 rounded-xl shadow-sm border border-gray-100 w-full sm:w-[48%] lg:w-[31%]`}>
+                  <View style={tw`flex-row items-center mb-3`}>
+                    <MapIcon size={24} color="#2563eb" style={tw`mr-3`} />
+                    <Text style={tw`text-lg font-bold text-gray-800 flex-1`} numberOfLines={1}>
+                      {croquis.nombre}
+                    </Text>
+                  </View>
+                  
+                  <View style={tw`flex-row justify-between items-center mt-4 pt-4 border-t border-gray-100`}>
+                    <Text style={tw`text-xs text-gray-500`}>
+                      {croquis.elements?.length || 0} elementos
+                    </Text>
+                    <View style={tw`flex-row gap-2`}>
+                      <TouchableOpacity
+                        onPress={() => handleRename(croquis)}
+                        style={tw`bg-gray-50 p-2 rounded-lg border border-gray-200`}
+                      >
+                        <Edit2 size={16} color="#4b5563" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleEdit(croquis)}
+                        style={tw`bg-blue-50 p-2 rounded-lg border border-blue-100`}
+                      >
+                        <MapIcon size={16} color="#2563eb" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDelete(croquis.id)}
+                        style={tw`bg-red-50 p-2 rounded-lg border border-red-100`}
+                      >
+                        <Trash2 size={16} color="#dc2626" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        )}
+
+        {/* Rename Modal */}
+        {croquisToRename && (
+          <View style={tw`absolute inset-0 bg-black/50 flex items-center justify-center z-50`}>
+            <View style={tw`bg-white p-6 rounded-xl shadow-xl w-80 max-w-[90%]`}>
+              <Text style={tw`text-xl font-bold text-gray-800 mb-4`}>Renombrar Croquis</Text>
+              <TextInput
+                value={croquisToRename.name}
+                onChangeText={(t) => setCroquisToRename({ ...croquisToRename, name: t })}
+                placeholder="Nombre del Croquis"
+                style={tw`border border-gray-300 rounded-lg p-3 bg-gray-50 mb-6 text-gray-800`}
+                autoFocus
+              />
+              <View style={tw`flex-row justify-end gap-3`}>
+                <TouchableOpacity 
+                  onPress={cancelRename}
+                  style={tw`px-4 py-2 rounded-lg bg-gray-100`}
+                >
+                  <Text style={tw`text-gray-700 font-medium`}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={confirmRename}
+                  style={tw`px-4 py-2 rounded-lg bg-blue-600`}
+                >
+                  <Text style={tw`text-white font-medium`}>Guardar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {croquisToDelete && (
+          <View style={tw`absolute inset-0 bg-black/50 flex items-center justify-center z-50`}>
+            <View style={tw`bg-white p-6 rounded-xl shadow-xl w-80 max-w-[90%]`}>
+              <Text style={tw`text-xl font-bold text-gray-800 mb-2`}>Eliminar Croquis</Text>
+              <Text style={tw`text-gray-600 mb-6`}>¿Estás seguro de que deseas eliminar este croquis? Esta acción no se puede deshacer.</Text>
+              <View style={tw`flex-row justify-end gap-3`}>
+                <TouchableOpacity 
+                  onPress={cancelDelete}
+                  style={tw`px-4 py-2 rounded-lg bg-gray-100`}
+                >
+                  <Text style={tw`text-gray-700 font-medium`}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={confirmDelete}
+                  style={tw`px-4 py-2 rounded-lg bg-red-600`}
+                >
+                  <Text style={tw`text-white font-medium`}>Eliminar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <View style={tw`flex-1 flex-col h-full bg-gray-100`}>
+      {/* Editor Header */}
+      <View style={tw`bg-white border-b border-gray-200 px-4 py-3 flex-row items-center justify-between shadow-sm z-20`}>
+        <View style={tw`flex-row items-center`}>
+          <TouchableOpacity 
+            onPress={() => {
+              if (window.confirm("¿Salir sin guardar? Se perderán los cambios no guardados.")) {
+                setViewMode('list');
+              }
+            }}
+            style={tw`mr-4 p-2 bg-gray-100 rounded-full`}
+          >
+            <ChevronLeft size={20} color="#4b5563" />
+          </TouchableOpacity>
+          <TextInput
+            value={currentCroquisName}
+            onChangeText={setCurrentCroquisName}
+            placeholder="Nombre del Croquis"
+            style={tw`text-lg font-bold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 pb-1 min-w-[200px]`}
+          />
+        </View>
+        <TouchableOpacity
+          onPress={saveCroquis}
+          disabled={loading}
+          style={tw`bg-blue-600 px-4 py-2 rounded-lg flex-row items-center shadow-sm ${loading ? 'opacity-50' : ''}`}
+        >
+          <Save size={18} color="#fff" style={tw`mr-2`} />
+          <Text style={tw`text-white font-bold`}>{loading ? 'Guardando...' : 'Guardar Croquis'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Canvas Area */}
-      <View style={tw`flex-1 relative overflow-hidden bg-gray-50`}>
+      <View style={tw`flex-1 flex-row`}>
+        {/* Toolbar */}
+        <View style={tw`w-20 bg-white border-r border-gray-200 items-center py-4 gap-2 shadow-sm z-10`}>
+          {Tools.map((t) => (
+            <TouchableOpacity
+              key={t.id}
+              onPress={() => changeTool(t.id as ToolType)}
+              style={tw`p-2 rounded-lg items-center justify-center w-16 ${tool === t.id ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
+            >
+              <t.icon size={20} color={tool === t.id ? '#2563eb' : '#4b5563'} />
+              <Text style={tw`text-[9px] text-center mt-1 text-gray-600 leading-tight`}>{t.label}</Text>
+            </TouchableOpacity>
+          ))}
+          
+          <View style={tw`h-px w-10 bg-gray-200 my-2`} />
+          
+          <TouchableOpacity onPress={() => setStageScale(s => s * 1.2)} style={tw`p-2`}>
+            <ZoomIn size={20} color="#4b5563" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setStageScale(s => s / 1.2)} style={tw`p-2`}>
+            <ZoomOut size={20} color="#4b5563" />
+          </TouchableOpacity>
+          
+          <View style={tw`h-px w-10 bg-gray-200 my-2`} />
+
+          <TouchableOpacity onPress={undo} disabled={historyStep < 0} style={tw`p-2 opacity-${historyStep < 0 ? '50' : '100'}`}>
+            <Undo size={20} color="#4b5563" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={redo} disabled={historyStep >= history.length - 1} style={tw`p-2 opacity-${historyStep >= history.length - 1 ? '50' : '100'}`}>
+            <Redo size={20} color="#4b5563" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Canvas Area */}
+        <View 
+        style={tw`flex-1 relative overflow-hidden bg-gray-50`}
+        onLayout={onLayout}
+      >
         <Stage
-          width={window.innerWidth - 350} // Approx width minus sidebar
-          height={window.innerHeight}
+          width={stageDimensions.width}
+          height={stageDimensions.height}
           scaleX={stageScale}
           scaleY={stageScale}
           x={stagePos.x}
@@ -470,15 +780,56 @@ export default function Croquis() {
           draggable={tool === 'pan'}
           onDragEnd={(e) => setStagePos(e.target.position())}
           onMouseDown={handleStageClick}
+          onMouseMove={(e) => {
+            const stage = e.target.getStage();
+            if (!stage) return;
+            const pointer = stage.getPointerPosition();
+            if (!pointer) return;
+            const scale = stage.scaleX();
+            setCursorPos({
+              x: (pointer.x - stage.x()) / scale,
+              y: (pointer.y - stage.y()) / scale
+            });
+          }}
+          onMouseLeave={() => setCursorPos(null)}
+          onWheel={(e) => {
+            if (isSpacePressedRef.current) {
+              e.evt.preventDefault();
+              const scaleBy = 1.1;
+              const stage = e.target.getStage();
+              if (!stage) return;
+              const oldScale = stage.scaleX();
+              const pointer = stage.getPointerPosition();
+              if (!pointer) return;
+
+              const mousePointTo = {
+                x: (pointer.x - stage.x()) / oldScale,
+                y: (pointer.y - stage.y()) / oldScale,
+              };
+
+              const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+              setStageScale(newScale);
+              setStagePos({
+                x: pointer.x - mousePointTo.x * newScale,
+                y: pointer.y - mousePointTo.y * newScale,
+              });
+            }
+          }}
           ref={stageRef}
           style={{ cursor: tool === 'pan' ? 'grab' : tool === 'select' ? 'default' : 'crosshair' }}
         >
           <Layer>
-            {/* Grid Background (Optional, simple visual guide) */}
+            {/* Grid Background */}
             <Rect x={-5000} y={-5000} width={10000} height={10000} fill="#f9fafb" />
             
             {/* Render Elements */}
-            {elements.map((el) => {
+            {elements
+              .slice()
+              .sort((a, b) => {
+                const order: Record<string, number> = { barrio: 0, manzana: 1, street: 2, vivienda: 3, reference: 4 };
+                return (order[a.type] || 0) - (order[b.type] || 0);
+              })
+              .map((el) => {
               const isSelected = selectedId === el.id;
               if (el.type === 'street') {
                 return (
@@ -487,7 +838,6 @@ export default function Croquis() {
                     onClick={() => tool === 'select' && setSelectedId(el.id)}
                     onTap={() => tool === 'select' && setSelectedId(el.id)}
                   >
-                    {/* Highlight when selected */}
                     {isSelected && (
                       <Line
                         points={el.points}
@@ -498,8 +848,6 @@ export default function Croquis() {
                         opacity={0.5}
                       />
                     )}
-                    
-                    {/* Road Base (Asphalt) */}
                     <Line
                       points={el.points}
                       stroke={el.style?.stroke || '#4b5563'}
@@ -511,6 +859,7 @@ export default function Croquis() {
                 );
               }
               if (el.type === 'manzana' || el.type === 'barrio') {
+                const centroid = el.points ? getCentroid(el.points) : { x: 0, y: 0 };
                 return (
                   <Group
                     key={el.id}
@@ -524,14 +873,27 @@ export default function Croquis() {
                       fill={el.style?.fill}
                       strokeWidth={el.style?.strokeWidth}
                     />
-                    {/* Label Center Calculation (Simplified) */}
-                    {el.points && el.points.length >= 2 && (
+                    {el.type === 'manzana' && isManzanaInAnyBarrio(el) && el.data.blockNumber && (
                        <KonvaText
-                        x={el.points[0]}
-                        y={el.points[1]}
-                        text={el.data.label}
-                        fontSize={12}
+                        x={centroid.x}
+                        y={centroid.y}
+                        offsetX={10}
+                        offsetY={10}
+                        text={el.data.blockNumber}
+                        fontSize={16}
+                        fontStyle="bold"
                         fill="#000"
+                        align="center"
+                       />
+                    )}
+                    {el.type === 'barrio' && el.data.label && (
+                       <KonvaText
+                        x={centroid.x}
+                        y={centroid.y}
+                        text={el.data.label}
+                        fontSize={14}
+                        fill="#2563eb"
+                        fontStyle="italic"
                        />
                     )}
                   </Group>
@@ -574,7 +936,6 @@ export default function Croquis() {
                     onClick={() => tool === 'select' && setSelectedId(el.id)}
                     onTap={() => tool === 'select' && setSelectedId(el.id)}
                   >
-                    {/* Pin Shape */}
                     <Circle
                       radius={8}
                       fill={isSelected ? '#2563eb' : el.style?.fill}
@@ -587,11 +948,11 @@ export default function Croquis() {
                     />
                     <KonvaText
                       y={-22}
-                      x={-15}
-                      width={30}
+                      x={-50}
+                      width={100}
                       align="center"
                       text={el.data.label}
-                      fontSize={10}
+                      fontSize={12}
                       fill="#000"
                       fontStyle="bold"
                     />
@@ -610,6 +971,54 @@ export default function Croquis() {
                 dash={[10, 5]}
                 closed={tool === 'manzana' || tool === 'barrio'}
               />
+            )}
+
+            {/* Dynamic Measuring Line */}
+            {currentPoints.length >= 2 && cursorPos && ['street', 'manzana', 'barrio'].includes(tool) && (
+              <Group>
+                <Line
+                  points={[
+                    currentPoints[currentPoints.length - 2],
+                    currentPoints[currentPoints.length - 1],
+                    cursorPos.x,
+                    cursorPos.y
+                  ]}
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  dash={[5, 5]}
+                />
+                {(() => {
+                  const lastX = currentPoints[currentPoints.length - 2];
+                  const lastY = currentPoints[currentPoints.length - 1];
+                  const midX = (lastX + cursorPos.x) / 2;
+                  const midY = (lastY + cursorPos.y) / 2;
+                  const distance = Math.sqrt(Math.pow(cursorPos.x - lastX, 2) + Math.pow(cursorPos.y - lastY, 2));
+                  const distanceMeters = (distance / 10).toFixed(1); // Assuming 10px = 1m for display purposes
+                  
+                  return (
+                    <Group x={midX} y={midY}>
+                      <Rect
+                        x={-25}
+                        y={-10}
+                        width={50}
+                        height={20}
+                        fill="#ef4444"
+                        cornerRadius={10}
+                      />
+                      <KonvaText
+                        x={-25}
+                        y={-6}
+                        width={50}
+                        text={`${distanceMeters}m`}
+                        fontSize={10}
+                        fill="#ffffff"
+                        align="center"
+                        fontStyle="bold"
+                      />
+                    </Group>
+                  );
+                })()}
+              </Group>
             )}
           </Layer>
         </Stage>
@@ -643,7 +1052,9 @@ export default function Croquis() {
         {selectedId ? (
           <View style={tw`gap-4`}>
             <View>
-              <Text style={tw`text-xs text-gray-500 font-bold uppercase mb-1`}>Etiqueta / Nombre</Text>
+              <Text style={tw`text-xs text-gray-500 font-bold uppercase mb-1`}>
+                {elements.find(e => e.id === selectedId)?.type === 'reference' ? 'Punto de Referencia' : 'Etiqueta / Nombre'}
+              </Text>
               <TextInput
                 value={propLabel}
                 onChangeText={(t) => {
@@ -653,6 +1064,21 @@ export default function Croquis() {
                 style={tw`border border-gray-300 rounded p-2 bg-gray-50`}
               />
             </View>
+
+            {elements.find(e => e.id === selectedId)?.type === 'manzana' && isManzanaInAnyBarrio(elements.find(e => e.id === selectedId)!) && (
+              <View>
+                <Text style={tw`text-xs text-gray-500 font-bold uppercase mb-1`}>Número de Manzana</Text>
+                <TextInput
+                  value={propBlockNumber}
+                  onChangeText={(t) => {
+                    setPropBlockNumber(t);
+                    updateSelectedProperty('blockNumber', t);
+                  }}
+                  keyboardType="numeric"
+                  style={tw`border border-gray-300 rounded p-2 bg-gray-50 font-bold text-lg`}
+                />
+              </View>
+            )}
 
             {elements.find(e => e.id === selectedId)?.type === 'street' && (
               <View>
@@ -675,34 +1101,12 @@ export default function Croquis() {
               </View>
             )}
 
-            {elements.find(e => e.id === selectedId)?.type === 'reference' && (
-              <View>
-                <Text style={tw`text-xs text-gray-500 font-bold uppercase mb-1`}>Tipo de Referencia</Text>
-                <View style={tw`flex-row flex-wrap gap-2`}>
-                  {['tienda', 'escuela', 'parque', 'iglesia', 'otro'].map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      onPress={() => updateSelectedProperty('referenceType', type)}
-                      style={tw`px-2 py-1 rounded border ${
-                        elements.find(e => e.id === selectedId)?.data.referenceType === type 
-                          ? 'bg-green-100 border-green-500' 
-                          : 'bg-gray-50 border-gray-200'
-                      }`}
-                    >
-                      <Text style={tw`text-xs capitalize`}>{type}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-
             {elements.find(e => e.id === selectedId)?.type === 'manzana' && (
               <>
                 <View>
                   <Text style={tw`text-xs text-gray-500 font-bold uppercase mb-1`}>Cant. Viviendas (Calc)</Text>
                   <TextInput
                     value={
-                        // Calcular dinámicamente cuántas casas hay dentro de esta manzana
                         elements.filter(el => 
                             el.type === 'vivienda' && 
                             elements.find(m => m.id === selectedId)?.points &&
@@ -712,7 +1116,6 @@ export default function Croquis() {
                     editable={false}
                     style={tw`border border-gray-200 rounded p-2 bg-gray-100 text-gray-500`}
                   />
-                  <Text style={tw`text-[10px] text-gray-400 mt-1`}>Calculado automáticamente según casas dibujadas dentro.</Text>
                 </View>
                 <View style={tw`mt-2`}>
                   <Text style={tw`text-xs text-gray-500 font-bold uppercase mb-1`}>Habitantes</Text>
@@ -753,6 +1156,7 @@ export default function Croquis() {
             <Text style={tw`text-white font-bold`}>{loading ? "Guardando..." : "Guardar Croquis"}</Text>
           </TouchableOpacity>
         </View>
+      </View>
       </View>
     </View>
   );

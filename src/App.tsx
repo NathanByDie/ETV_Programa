@@ -15,6 +15,7 @@ import Croquis from "./pages/Croquis";
 import Historial from "./pages/Historial";
 import AsignarTrabajoScreen from "./pages/AsignarTrabajoScreen";
 import { View, Text, TouchableOpacity } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import tw from "twrnc";
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
 
   return (
     <Router>
+      <StatusBar style="auto" />
       {authError && (
         <View style={tw`bg-orange-500 p-2 flex-row justify-between items-center`}>
           <Text style={tw`text-white text-center text-xs font-bold flex-1`}>{authError}</Text>
