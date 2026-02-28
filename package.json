@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "main": "main.js",
+  "main": "main.cjs",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "start": "expo start",
@@ -82,7 +82,7 @@
     },
     "files": [
       "dist/**/*",
-      "main.js"
+      "main.cjs"
     ]
   }
 }
