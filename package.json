@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "main.js",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "start": "expo start",
@@ -13,7 +14,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -56,9 +59,30 @@
     "@types/react-native": "^0.72.8",
     "autoprefixer": "^10.4.19",
     "babel-preset-expo": "^55.0.10",
+    "concurrently": "^8.2.2",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
     "tailwindcss": "^3.4.3",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0",
-    "vite": "^5.2.0"
+    "vite": "^5.2.0",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.etv.programa",
+    "productName": "Programa ETV",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "files": [
+      "dist/**/*",
+      "main.js"
+    ]
   }
 }
