@@ -79,6 +79,17 @@ export const api = {
       return { id: `local-${Date.now()}`, ...asignacion };
     }
   },
+  deleteAsignacion: async (id: string) => {
+    try {
+      if (!id.startsWith('local-')) {
+        await deleteDoc(doc(db, "asignaciones", id));
+      }
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  },
 
   // Croquis
   getAllCroquis: async () => {

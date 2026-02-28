@@ -22,6 +22,7 @@ export default function Historial() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"todos" | "fumigacion" | "abatizacion">("todos");
   const [loading, setLoading] = useState(true);
+  const [asignacionToDelete, setAsignacionToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHistorial();
@@ -57,6 +58,24 @@ export default function Historial() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = (id: string) => {
+    setAsignacionToDelete(id);
+  };
+
+  const confirmDelete = async () => {
+    if (asignacionToDelete) {
+      setLoading(true);
+      await api.deleteAsignacion(asignacionToDelete);
+      await fetchHistorial();
+      setAsignacionToDelete(null);
+      setLoading(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setAsignacionToDelete(null);
   };
 
   return (
@@ -174,11 +193,41 @@ export default function Historial() {
                 <Text style={tw`text-sm text-gray-500`}>
                   Brigadista: <Text style={tw`font-medium text-gray-700`}>{item.brigadistaNombre}</Text>
                 </Text>
+                <TouchableOpacity
+                  onPress={() => handleDelete(item.id)}
+                  style={tw`bg-red-50 p-2 rounded-lg border border-red-100`}
+                >
+                  <Trash2 size={16} color="#dc2626" />
+                </TouchableOpacity>
               </View>
             </View>
           ))
         )}
       </View>
+
+      {/* Delete Confirmation Modal */}
+      {asignacionToDelete && (
+        <View style={tw`absolute inset-0 bg-black/50 flex items-center justify-center z-50`}>
+          <View style={tw`bg-white p-6 rounded-xl shadow-xl w-80 max-w-[90%]`}>
+            <Text style={tw`text-xl font-bold text-gray-800 mb-2`}>Eliminar Asignación</Text>
+            <Text style={tw`text-gray-600 mb-6`}>¿Estás seguro de que deseas eliminar esta asignación? Esta acción no se puede deshacer.</Text>
+            <View style={tw`flex-row justify-end gap-3`}>
+              <TouchableOpacity 
+                onPress={cancelDelete}
+                style={tw`px-4 py-2 rounded-lg bg-gray-100`}
+              >
+                <Text style={tw`text-gray-700 font-medium`}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={confirmDelete}
+                style={tw`px-4 py-2 rounded-lg bg-red-600`}
+              >
+                <Text style={tw`text-white font-medium`}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }

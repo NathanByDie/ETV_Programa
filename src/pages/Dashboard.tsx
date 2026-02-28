@@ -45,10 +45,8 @@ export default function Dashboard() {
     <View style={tw`flex-1`}>
       {/* Header Card */}
       <View style={tw`bg-blue-600 rounded-2xl p-6 shadow-lg mb-6`}>
-        <Text style={tw`text-2xl font-bold text-white mb-1`}>Hola, Supervisor</Text>
-        <Text style={tw`text-white opacity-90 text-sm`}>Resumen de actividad reciente</Text>
         
-        <View style={tw`mt-6 flex-row gap-4`}>
+        <View style={tw`flex-row gap-4`}>
           <View style={tw`bg-white/20 rounded-xl p-3 flex-1 items-center`}>
             <Text style={tw`text-2xl font-bold text-white`}>
               {asignaciones.filter(a => a.tipo === 'fumigacion').length}

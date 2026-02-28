@@ -388,8 +388,21 @@ export default function Asignacion() {
           selectedManzanasData.forEach((m, index) => {
             const label = m.data.blockNumber || m.id.split('-').pop();
             const ref = getReferenceForManzana(m, croquisElements);
-            const viviendas = parseInt(m.data.houseCount || '0', 10);
+            
+            // Calculate houses dynamically based on the croquis elements
+            let calculatedHouses = 0;
+            if (m.points) {
+              calculatedHouses = croquisElements.filter(el => 
+                el.type === 'vivienda' && el.x && el.y && isPointInPolygon(el.x, el.y, m.points!)
+              ).length;
+            }
+            
+            // Use calculated houses directly, ignoring any potentially stale houseCount
+            const viviendas = calculatedHouses;
+            
+            // Use inhabitants from the manzana data
             const habitantes = parseInt(m.data.inhabitants || '0', 10);
+            
             totalViviendas += isNaN(viviendas) ? 0 : viviendas;
             totalHabitantes += isNaN(habitantes) ? 0 : habitantes;
 
@@ -410,38 +423,54 @@ export default function Asignacion() {
               <head>
                 <title>Consolidado Diario - ${tipo.toUpperCase()}</title>
                 <style>
-                  body { font-family: 'Arial', sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; font-size: 11px; }
-                  .header { text-align: center; margin-bottom: 20px; position: relative; }
-                  .header h2, .header h3, .header h4 { margin: 2px 0; }
-                  .date-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; margin-top: 10px; }
+                  @page { size: letter portrait; margin: 10mm; }
+                  body { 
+                    font-family: 'Arial', sans-serif; 
+                    padding: 0; 
+                    max-width: 100%; 
+                    margin: 0; 
+                    font-size: 10px; 
+                    line-height: 1.2;
+                  }
+                  .header { text-align: center; margin-bottom: 10px; position: relative; }
+                  .header h2, .header h3, .header h4 { margin: 2px 0; font-size: 14px; }
+                  .date-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin-top: 5px; }
                   
-                  table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-                  th, td { border: 1px solid #000; padding: 4px 8px; }
-                  th { background-color: #93c5fd; font-weight: bold; text-align: center; }
-                  .table-header-blue { background-color: #93c5fd; font-weight: bold; text-align: center; }
-                  .table-total { background-color: #fbbf24; font-weight: bold; }
+                  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+                  th, td { border: 1px solid #000; padding: 2px 4px; font-size: 10px; }
+                  th { background-color: #93c5fd !important; font-weight: bold; text-align: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                  .table-header-blue { background-color: #93c5fd !important; font-weight: bold; text-align: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                  .table-total { background-color: #fbbf24 !important; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                   
-                  .map-container { border: 3px solid #000; padding: 5px; margin-bottom: 15px; text-align: center; height: 250px; display: flex; align-items: center; justify-content: center; }
+                  .map-container { border: 2px solid #000; padding: 2px; margin-bottom: 10px; text-align: center; height: 200px; display: flex; align-items: center; justify-content: center; }
                   .map-image { max-width: 100%; max-height: 100%; object-fit: contain; }
                   
-                  .activities-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 20px; border: 1px solid #000; }
+                  .activities-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 10px; border: 1px solid #000; }
                   .activities-col { border-right: 1px solid #000; }
                   .activities-col:last-child { border-right: none; }
                   .activity-row { display: flex; border-bottom: 1px solid #000; }
                   .activity-row:last-child { border-bottom: none; }
-                  .activity-label { flex: 1; padding: 4px 8px; font-weight: bold; font-size: 10px; }
-                  .activity-value { width: 40px; border-left: 1px solid #000; }
-                  .activity-header { font-weight: bold; text-align: left; padding: 4px 8px; border-bottom: 1px solid #000; font-size: 10px; }
+                  .activity-label { flex: 1; padding: 2px 4px; font-weight: bold; font-size: 9px; }
+                  .activity-value { width: 30px; border-left: 1px solid #000; }
+                  .activity-header { font-weight: bold; text-align: left; padding: 2px 4px; border-bottom: 1px solid #000; font-size: 9px; }
                   
-                  .form-row { margin-bottom: 10px; display: flex; align-items: flex-end; }
-                  .form-label { font-weight: bold; margin-right: 5px; white-space: nowrap; }
-                  .form-line { flex: 1; border-bottom: 1px solid #000; height: 15px; }
+                  .form-row { margin-bottom: 6px; display: flex; align-items: flex-end; }
+                  .form-label { font-weight: bold; margin-right: 5px; white-space: nowrap; font-size: 10px; }
+                  .form-line { flex: 1; border-bottom: 1px solid #000; height: 12px; }
                   
-                  .signature-section { margin-top: 30px; }
-                  .signature-line { border-bottom: 1px solid #000; width: 100%; margin-top: 20px; }
+                  .signature-section { margin-top: 15px; }
+                  .signature-line { border-bottom: 1px solid #000; width: 100%; margin-top: 15px; }
+                  
+                  /* Force everything onto one page */
+                  html, body { height: 100%; overflow: hidden; }
+                  @media print {
+                    html, body { height: auto; overflow: visible; }
+                    .page-container { page-break-inside: avoid; }
+                  }
                 </style>
               </head>
               <body>
+                <div class="page-container">
                 <div class="header">
                   <h3>MINISTERIO DE SALUD</h3>
                   <h3>HOSPITAL PRIMARIO DE CAMOAPA</h3>
@@ -561,9 +590,14 @@ export default function Asignacion() {
                   <span style="font-weight: bold;">${brigadistaName}</span>
                   <div class="signature-line"></div>
                 </div>
+                </div>
 
                 <script>
-                  window.onload = function() { window.print(); }
+                  window.onload = function() { 
+                    setTimeout(function() {
+                      window.print(); 
+                    }, 500);
+                  }
                 </script>
               </body>
             </html>
