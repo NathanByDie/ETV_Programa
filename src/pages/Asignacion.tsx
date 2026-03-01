@@ -98,6 +98,38 @@ export default function Asignacion() {
   const [previewScale, setPreviewScale] = useState(0.5);
   const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 });
   const previewStageRef = useRef<any>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+
+  const handlePrint = () => {
+    if (!previewHtml) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Imprimir Asignación</title>
+            <style>
+              @media print {
+                @page { margin: 0; size: legal portrait; }
+                body { margin: 1cm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              }
+            </style>
+          </head>
+          <body>
+            ${previewHtml}
+            <script>
+              window.onload = () => {
+                window.print();
+                setTimeout(() => window.close(), 500);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+  };
 
   // Centroid calculation for polygons
   const getCentroid = (points: number[]) => {
@@ -263,7 +295,15 @@ export default function Asignacion() {
     
     // Auto-select manzanas inside the 500m radius
     const newSelected: string[] = [];
-    availableManzanas.forEach(m => {
+    
+    // When in foco mode, we want to check ALL manzanas in the croquis, not just the current barrio
+    const croquis = allCroquis.find(c => c.id === selectedCroquisId);
+    if (!croquis) return;
+    
+    const allManzanasInCroquis = croquis.elements.filter(el => el.type === 'manzana');
+    const manzanasInRadius: any[] = [];
+    
+    allManzanasInCroquis.forEach(m => {
       if (m.points && m.points.length >= 2) {
         let inside = false;
         // Check if any point of the manzana is within the 500m radius
@@ -276,11 +316,35 @@ export default function Asignacion() {
            }
         }
         if (inside) {
+          manzanasInRadius.push(m);
           newSelected.push(m.data.blockNumber || m.id.split('-').pop()!);
         }
       }
     });
+    
+    // Update available manzanas to include all manzanas in the radius
+    setAvailableManzanas(manzanasInRadius);
     setSelectedManzanas(newSelected);
+    
+    // Adjust map scale to fit the 500m radius
+    const minX = pos.x - radius;
+    const maxX = pos.x + radius;
+    const minY = pos.y - radius;
+    const maxY = pos.y + radius;
+    
+    const padding = 40;
+    const width = maxX - minX;
+    const height = maxY - minY;
+    
+    const scaleX = 300 / (width + padding * 2);
+    const scaleY = 180 / (height + padding * 2);
+    const scale = Math.min(scaleX, scaleY);
+    
+    setPreviewScale(scale);
+    setPreviewPos({
+      x: -(minX - padding) * scale,
+      y: -(minY - padding) * scale
+    });
   };
 
   const checkAvailability = async () => {
@@ -411,115 +475,134 @@ export default function Asignacion() {
           });
 
           const htmlContent = `
-            <div id="pdf-content" style="padding: 15mm; width: 215.9mm; min-height: 355.6mm; box-sizing: border-box; background: white; font-family: 'Arial', sans-serif; font-size: 12px; line-height: 1.4; display: flex; flex-direction: column;">
-              <div class="header" style="text-align: center; margin-bottom: 20px;">
-                <h3 style="margin: 4px 0; font-size: 16px;">MINISTERIO DE SALUD</h3>
-                <h3 style="margin: 4px 0; font-size: 16px;">HOSPITAL PRIMARIO DE CAMOAPA</h3>
-                <h4 style="margin: 4px 0; font-size: 14px;">PROGRAMA DE E.T.V</h4>
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; margin-top: 15px;">
+            <div id="pdf-content" style="padding: 15mm; width: 215.9mm; min-height: 355.6mm; box-sizing: border-box; background: white; font-family: 'Arial', sans-serif; font-size: 14px; line-height: 1.4; display: flex; flex-direction: column; position: relative; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+              <div class="header" style="text-align: center; margin-bottom: 20px; position: relative;">
+                <!-- Logo Izquierdo -->
+                <img src="https://www.minsa.gob.ni/sites/default/files/Logo-01.png" style="position: absolute; left: 0; top: 0; width: 170px; height: 80px; object-fit: contain;" />
+                <!-- Logo Derecho -->
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTDUPykT7GOjsNSvJL_ePAoTw3WEihUfGo80A&s" style="position: absolute; right: 0; top: 0; width: 190px; height: 70px; object-fit: contain;" />
+                
+                <h3 style="margin: 4px 0; font-size: 18px; color: #000;">MINISTERIO DE SALUD</h3>
+                <h3 style="margin: 4px 0; font-size: 18px; color: #000;">HOSPITAL PRIMARIO DE CAMOAPA</h3>
+                <h4 style="margin: 4px 0; font-size: 16px; color: #000;">PROGRAMA DE E.T.V</h4>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-top: 15px; color: #000;">
                   <span>Consolidado Diario</span>
                   <span>Fecha: ${date}</span>
                 </div>
               </div>
               
-              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #000;">
                 <tr>
-                  <td colspan="6" style="background-color: #93c5fd; font-weight: bold; text-align: center; font-size: 14px; padding: 8px; border: 1px solid #000;">PROGRAMA E.T.V CAMOAPA-BOACO</td>
+                  <td colspan="6" style="background-color: #93c5fd !important; color: #000; font-weight: bold; text-align: center; font-size: 16px; padding: 8px; border: 1px solid #000;">PROGRAMA E.T.V CAMOAPA-BOACO</td>
                 </tr>
                 <tr>
-                  <td colspan="6" style="background-color: #93c5fd; font-weight: bold; text-align: center; font-size: 14px; padding: 8px; border: 1px solid #000;">RELACION POR MANZANA</td>
+                  <td colspan="6" style="background-color: #93c5fd !important; color: #000; font-weight: bold; text-align: center; font-size: 16px; padding: 8px; border: 1px solid #000;">RELACION POR MANZANA</td>
                 </tr>
                 <tr>
-                  <td colspan="6" style="background-color: #93c5fd; font-weight: bold; text-align: center; font-size: 14px; padding: 8px; border: 1px solid #000;">BARRIO: ${lugarNombre.toUpperCase()}</td>
+                  <td colspan="6" style="background-color: #93c5fd !important; color: #000; font-weight: bold; text-align: center; font-size: 16px; padding: 8px; border: 1px solid #000;">BARRIO: ${lugarNombre.toUpperCase()}</td>
                 </tr>
                 <tr>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;"></th>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;">Manz<br>No</th>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;">vivienda<br>Existentes</th>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;">No<br>Habitantes</th>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;">Casas<br>Nuevas</th>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;">Punto de Referencia</th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;"></th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;">Manz<br>No</th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;">vivienda<br>Existentes</th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;">No<br>Habitantes</th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;">Casas<br>Nuevas</th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;">Punto de Referencia</th>
                 </tr>
-                ${tableRows}
-                <tr style="background-color: #fbbf24; font-weight: bold;">
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px;">TOTAL</td>
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${selectedManzanasData.length}</td>
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${totalViviendas || ''}</td>
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${totalHabitantes || ''}</td>
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px;"></td>
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px;"></td>
+                ${tableRows.replace(/font-size: 12px;/g, 'font-size: 14px; color: #000;')}
+                <tr style="background-color: #fbbf24 !important; font-weight: bold; color: #000;">
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px;">TOTAL</td>
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; text-align: center;">${selectedManzanasData.length}</td>
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; text-align: center;">${totalViviendas || ''}</td>
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; text-align: center;">${totalHabitantes || ''}</td>
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px;"></td>
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px;"></td>
                 </tr>
               </table>
 
               ${mapImage ? `
-              <div style="border: 2px solid #000; padding: 4px; margin-bottom: 20px; text-align: center; flex-grow: 1; min-height: 350px; display: flex; align-items: center; justify-content: center;">
-                <img src="${mapImage}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+              <div style="border: 2px solid #000; padding: 4px; margin-bottom: 20px; text-align: center; height: 160px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                <img src="${mapImage}" style="max-width: 100%; max-height: 150px; object-fit: contain;" />
               </div>
-              ` : '<div style="border: 2px solid #000; padding: 4px; margin-bottom: 20px; text-align: center; flex-grow: 1; min-height: 350px; display: flex; align-items: center; justify-content: center;"><p>Sin mapa</p></div>'}
+              ` : '<div style="border: 2px solid #000; padding: 4px; margin-bottom: 20px; text-align: center; height: 160px; display: flex; align-items: center; justify-content: center;"><p>Sin mapa</p></div>'}
 
-              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 20px; border: 1px solid #000;">
-                <div style="border-right: 1px solid #000;">
-                  <div style="font-weight: bold; text-align: center; padding: 6px 8px; border-bottom: 1px solid #000; font-size: 12px; background-color: #f1f5f9;">ACTIVIDAD DE FUMIGACION</div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Fumigadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Cerradas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Renuentes</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Deshabitada</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Manzanas Fumigadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Habitantes Protegidos</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Puntos Claves Fumigados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Cipermetrina Gastada</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">&nbsp;</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                </div>
-                <div style="border-right: 1px solid #000;">
-                  <div style="font-weight: bold; text-align: center; padding: 6px 8px; border-bottom: 1px solid #000; font-size: 12px; background-color: #f1f5f9;">ACTIVIDAD DE APLICACION</div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Inspeccionadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Tratadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Positivas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Cerradas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Desabitadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Renuentes</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Total de Viviendas Visitadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Puntos clave Tratados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">&nbsp;</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                </div>
-                <div>
-                  <div style="font-weight: bold; text-align: center; padding: 6px 8px; border-bottom: 1px solid #000; font-size: 12px; background-color: #f1f5f9;">DEPOSITOS</div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Depósitos Eliminados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Depósitos Cepillados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Depósitos Tratados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Depósitos Inspeccionados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Depósitos Positivos</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Abate en Kg Utilizado</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">&nbsp;</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">&nbsp;</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                  <div style="display: flex; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">&nbsp;</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
-                </div>
-              </div>
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; border: 1px solid #000;">
+                <tr>
+                  <th colspan="2" style="border: 1px solid #000; padding: 6px 8px; background-color: #f1f5f9 !important; text-align: center; color: #000;">ACTIVIDAD DE FUMIGACION</th>
+                  <th colspan="2" style="border: 1px solid #000; padding: 6px 8px; background-color: #f1f5f9 !important; text-align: center; color: #000;">ACTIVIDAD DE APLICACION</th>
+                  <th colspan="2" style="border: 1px solid #000; padding: 6px 8px; background-color: #f1f5f9 !important; text-align: center; color: #000;">DEPOSITOS</th>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Fumigadas</td><td style="border: 1px solid #000; width: 40px;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Inspeccionadas</td><td style="border: 1px solid #000; width: 40px;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Depósitos Eliminados</td><td style="border: 1px solid #000; width: 40px;"></td>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Cerradas</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Tratadas</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Depósitos Cepillados</td><td style="border: 1px solid #000;"></td>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Renuentes</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Positivas</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Depósitos Tratados</td><td style="border: 1px solid #000;"></td>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Deshabitada</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Cerradas</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Depósitos Inspeccionados</td><td style="border: 1px solid #000;"></td>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Manzanas Fumigadas</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Desabitadas</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Depósitos Positivos</td><td style="border: 1px solid #000;"></td>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Habitantes Protegidos</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Renuentes</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Abate en Kg Utilizado</td><td style="border: 1px solid #000;"></td>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Puntos Claves Fumigados</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Total de Viviendas Visitadas</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">&nbsp;</td><td style="border: 1px solid #000;"></td>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Cipermetrina Gastada</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Puntos clave Tratados</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">&nbsp;</td><td style="border: 1px solid #000;"></td>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">&nbsp;</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">&nbsp;</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">&nbsp;</td><td style="border: 1px solid #000;"></td>
+                </tr>
+              </table>
 
               <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Nombres y Apellidos del Caso Sospechoso</span>
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Nombres y Apellidos del Caso Sospechoso</span>
                 <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
               </div>
               <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Jefe de Familia del Caso Sospechoso</span>
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Jefe de Familia del Caso Sospechoso</span>
                 <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
               </div>
               <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Fecha de Nacimiento</span>
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Fecha de Nacimiento</span>
                 <div style="flex: 0.5; border-bottom: 1px solid #000; height: 16px;"></div>
-                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 12px;">Edad</span>
+                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 14px;">Edad</span>
                 <div style="flex: 0.2; border-bottom: 1px solid #000; height: 16px;"></div>
-                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 12px;">Sexo</span>
+                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 14px;">Sexo</span>
                 <div style="flex: 0.2; border-bottom: 1px solid #000; height: 16px;"></div>
-                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 12px;">Barrio O Comunidad</span>
+                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 14px;">Barrio O Comunidad</span>
                 <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
               </div>
               <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Dirección</span>
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Dirección</span>
                 <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
               </div>
               <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Observacion</span>
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Observacion</span>
                 <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
               </div>
               <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
@@ -527,30 +610,18 @@ export default function Asignacion() {
               </div>
 
               <div style="margin-top: auto; padding-top: 20px;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Nombre / Apellido y Firma de Recursos Participantes: </span>
-                <div style="border-bottom: 1px solid #000; width: 100%; margin-top: 25px;"></div>
+                <div style="display: flex; align-items: flex-end;">
+                  <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Nombre / Apellido y Firma de Recursos Participantes: </span>
+                  <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+                </div>
+                
+                <!-- Logo Inferior -->
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS27CGlOr9nf1ODCnqoeAYeUFqXP24AgyL9rw&s" style="position: absolute; bottom: 0; left: 1; width: 150px; height: 60px; object-fit: contain;" />
               </div>
             </div>
           `;
 
-          const container = document.createElement('div');
-          container.style.position = 'absolute';
-          container.style.left = '-9999px';
-          container.style.top = '-9999px';
-          container.innerHTML = htmlContent;
-          document.body.appendChild(container);
-
-          const opt = {
-            margin:       0,
-            filename:     `Asignacion_${lugarNombre}_${format(new Date(), 'yyyy-MM-dd')}.pdf`,
-            image:        { type: 'jpeg' as const, quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true },
-            jsPDF:        { unit: 'mm' as const, format: 'legal' as const, orientation: 'portrait' as const }
-          };
-
-          html2pdf().set(opt).from(container.firstElementChild as HTMLElement).save().then(() => {
-            document.body.removeChild(container);
-          });
+          setPreviewHtml(htmlContent);
       }
 
       // Reset form state completely
@@ -573,6 +644,43 @@ export default function Asignacion() {
       setLoading(false);
     }
   };
+
+  if (previewHtml) {
+    return (
+      <View style={tw`flex-1 bg-gray-100 p-4`}>
+        <View style={tw`flex-row justify-between items-center mb-4`}>
+          <Text style={tw`text-xl font-bold text-gray-800`}>Vista Previa de Asignación</Text>
+          <View style={tw`flex-row gap-4`}>
+            <TouchableOpacity
+              onPress={() => setPreviewHtml(null)}
+              style={tw`px-4 py-2 bg-gray-300 rounded-lg`}
+            >
+              <Text style={tw`text-gray-800 font-bold`}>Volver</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handlePrint}
+              style={tw`px-4 py-2 bg-blue-600 rounded-lg flex-row items-center gap-2`}
+            >
+              <Text style={tw`text-white font-bold`}>Imprimir Documento</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <View style={tw`flex-1 bg-white shadow-lg rounded-lg overflow-hidden`}>
+          {Platform.OS === 'web' ? (
+            <div 
+              style={{ width: '100%', height: '100%', overflow: 'auto', padding: '20px' }}
+              dangerouslySetInnerHTML={{ __html: previewHtml }}
+            />
+          ) : (
+            <ScrollView style={tw`flex-1 p-4`}>
+              <Text>La vista previa solo está disponible en la versión web.</Text>
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={tw`flex-1`}>
@@ -745,15 +853,31 @@ export default function Asignacion() {
                   ref={previewStageRef}
                 >
                   <Layer>
-                    {/* Draw Barrio */}
-                    {availableBarrios.find(b => b.id === selectedBarrioId)?.points && (
-                      <Line
-                        points={availableBarrios.find(b => b.id === selectedBarrioId)!.points!}
-                        closed={true}
-                        fill="rgba(220, 240, 250, 0.5)"
-                        stroke="#0284c7"
-                        strokeWidth={2 / previewScale}
-                      />
+                    {/* Draw All Barrios in Croquis if in Foco Mode, otherwise just selected */}
+                    {modoFoco ? (
+                      allCroquis.find(c => c.id === selectedCroquisId)?.elements
+                        .filter(el => el.type === 'barrio' && el.points)
+                        .map(b => (
+                          <Line
+                            key={b.id}
+                            points={b.points!}
+                            closed={true}
+                            fill={b.id === selectedBarrioId ? "rgba(220, 240, 250, 0.5)" : "transparent"}
+                            stroke="#0284c7"
+                            strokeWidth={2 / previewScale}
+                            dash={b.id !== selectedBarrioId ? [10 / previewScale, 10 / previewScale] : undefined}
+                          />
+                        ))
+                    ) : (
+                      availableBarrios.find(b => b.id === selectedBarrioId)?.points && (
+                        <Line
+                          points={availableBarrios.find(b => b.id === selectedBarrioId)!.points!}
+                          closed={true}
+                          fill="rgba(220, 240, 250, 0.5)"
+                          stroke="#0284c7"
+                          strokeWidth={2 / previewScale}
+                        />
+                      )
                     )}
                     {/* Draw Manzanas */}
                     {availableManzanas.map(m => {
@@ -771,10 +895,10 @@ export default function Asignacion() {
                             x={centroid.x}
                             y={centroid.y}
                             text={m.data.blockNumber}
-                            fontSize={20 / previewScale}
+                            fontSize={12 / previewScale}
                             fill="#000"
-                            offsetX={(10 / previewScale)} // Approximate centering
-                            offsetY={(10 / previewScale)}
+                            offsetX={(6 / previewScale)} // Approximate centering
+                            offsetY={(6 / previewScale)}
                           />
                         </Group>
                       );

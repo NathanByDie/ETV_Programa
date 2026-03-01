@@ -84,9 +84,6 @@ export default function Dashboard() {
                   <MapPin size={12} color="#6b7280" style={tw`mr-1`} />
                   <Text style={tw`text-sm text-gray-500 capitalize`}>{a.tipo}</Text>
                 </View>
-                <Text style={tw`text-xs text-gray-400 mt-2`}>
-                  Brigadista: <Text style={tw`text-gray-600 font-medium`}>{a.brigadistaNombre}</Text>
-                </Text>
               </View>
             </View>
           ))}

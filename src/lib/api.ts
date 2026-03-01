@@ -1,14 +1,31 @@
 import { db } from "./firebase";
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, query, orderBy, Timestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, query, orderBy, Timestamp, Query } from "firebase/firestore";
 
 // Helper for local storage sync
 const syncLocal = (key: string, data: any) => {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Error saving to local storage', e);
+  }
 };
 
 const getLocal = (key: string) => {
-  const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.warn('Error reading from local storage', e);
+    return [];
+  }
+};
+
+// Helper to prevent infinite hanging on getDocs
+const getDocsWithTimeout = async (q: Query, timeoutMs = 8000) => {
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('Firebase request timeout')), timeoutMs)
+  );
+  return Promise.race([getDocs(q), timeoutPromise]) as Promise<any>;
 };
 
 export const api = {
@@ -16,8 +33,8 @@ export const api = {
   getBrigadistas: async () => {
     try {
       const q = query(collection(db, "brigadistas"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const snapshot = await getDocsWithTimeout(q);
+      const data = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }));
       syncLocal('brigadistas', data);
       return data;
     } catch (e) {
@@ -52,8 +69,8 @@ export const api = {
   getAsignaciones: async () => {
     try {
       const q = query(collection(db, "asignaciones"), orderBy("fecha", "desc"));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(d => {
+      const snapshot = await getDocsWithTimeout(q);
+      const data = snapshot.docs.map((d: any) => {
         const data = d.data();
         return {
           id: d.id,
@@ -95,12 +112,20 @@ export const api = {
   getAllCroquis: async () => {
     try {
       const q = query(collection(db, "croquis"), orderBy("updatedAt", "desc"));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(d => ({
-        id: d.id,
-        ...d.data(),
-        elements: JSON.parse(d.data().data)
-      }));
+      const snapshot = await getDocsWithTimeout(q);
+      const data = snapshot.docs.map((d: any) => {
+        let elements = [];
+        try {
+          elements = JSON.parse(d.data().data);
+        } catch (err) {
+          console.warn('Error parsing croquis elements', err);
+        }
+        return {
+          id: d.id,
+          ...d.data(),
+          elements
+        };
+      });
       syncLocal('all_croquis', data);
       return data;
     } catch (e) {
@@ -110,17 +135,22 @@ export const api = {
   getCroquis: async () => {
     try {
       const q = query(collection(db, "croquis"), orderBy("updatedAt", "desc"));
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocsWithTimeout(q);
       if (!snapshot.empty) {
         const docData = snapshot.docs[0].data();
-        const data = JSON.parse(docData.data);
-        localStorage.setItem('croquis', docData.data);
+        let data = [];
+        try {
+          data = JSON.parse(docData.data);
+        } catch (err) {
+          console.warn('Error parsing croquis elements', err);
+        }
+        syncLocal('croquis', docData.data);
         return data;
       }
       return null;
     } catch (e) {
-      const local = localStorage.getItem('croquis');
-      return local ? JSON.parse(local) : null;
+      const local = getLocal('croquis');
+      return local ? local : null;
     }
   },
   saveCroquis: async (nombre: string, elements: any[], id?: string) => {

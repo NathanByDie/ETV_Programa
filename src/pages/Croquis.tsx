@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TouchableOpacity, TextInput, ScrollView } from "react-native";
 import { Stage, Layer, Line, Circle, Rect, Text as KonvaText, Group } from "react-konva";
-import { Trash2, MousePointer, PenTool, Square, Circle as CircleIcon, Map as MapIcon, Save, ZoomIn, ZoomOut, Move, Undo, Redo, XCircle, MapPin, Plus, Edit2, ChevronLeft } from "lucide-react";
+import { Trash2, MousePointer, PenTool, Square, Circle as CircleIcon, Map as MapIcon, Save, ZoomIn, ZoomOut, Move, Undo, Redo, XCircle, MapPin, Plus, Edit2, ChevronLeft, ListOrdered } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
 import { useUnsavedChanges } from "../contexts/UnsavedChangesContext";
@@ -464,7 +464,34 @@ export default function Croquis() {
         style: { stroke: '#4b5563', strokeWidth: 20 }
       };
     } else if (tool === 'manzana') {
-      const nextNum = elements.filter(e => e.type === 'manzana').length + 1;
+      // Find which barrio this manzana belongs to
+      const firstPointX = currentPoints[0];
+      const firstPointY = currentPoints[1];
+      let parentBarrioId = null;
+      
+      const barrios = elements.filter(el => el.type === 'barrio');
+      for (let i = barrios.length - 1; i >= 0; i--) {
+        const b = barrios[i];
+        if (b.points && isPointInPolygon(firstPointX, firstPointY, b.points)) {
+          parentBarrioId = b.id;
+          break;
+        }
+      }
+
+      let nextNum = 1;
+      if (parentBarrioId) {
+        // Count manzanas in this specific barrio
+        const manzanasInBarrio = elements.filter(el => 
+          el.type === 'manzana' && 
+          el.points && 
+          isPointInPolygon(el.points[0], el.points[1], barrios.find(b => b.id === parentBarrioId)!.points!)
+        );
+        nextNum = manzanasInBarrio.length + 1;
+      } else {
+        // Fallback to global count if not in any barrio
+        nextNum = elements.filter(e => e.type === 'manzana').length + 1;
+      }
+
       newElement = {
         id,
         type: 'manzana',
@@ -584,6 +611,66 @@ export default function Croquis() {
         setSelectedId(null);
         setHasUnsavedChanges(true);
       }
+    });
+  };
+
+  const renumberAllManzanas = () => {
+    setElements(prevElements => {
+      const newElements = [...prevElements];
+      const barrios = newElements.filter(e => e.type === 'barrio');
+      const manzanas = newElements.filter(e => e.type === 'manzana');
+      
+      // Keep track of which manzanas have been numbered
+      const numberedManzanaIds = new Set();
+
+      barrios.forEach(barrio => {
+        if (!barrio.points) return;
+        
+        // Find manzanas in this barrio
+        const manzanasInThisBarrio = manzanas.filter(m => 
+          m.points && isPointInPolygon(m.points[0], m.points[1], barrio.points!)
+        );
+
+        // Sort them by Y, then X to have a predictable numbering order (top-left to bottom-right)
+        manzanasInThisBarrio.sort((a, b) => {
+          if (Math.abs(a.points![1] - b.points![1]) > 50) {
+            return a.points![1] - b.points![1]; // Top to bottom
+          }
+          return a.points![0] - b.points![0]; // Left to right
+        });
+
+        manzanasInThisBarrio.forEach((m, index) => {
+          const elIndex = newElements.findIndex(e => e.id === m.id);
+          if (elIndex !== -1) {
+            newElements[elIndex] = {
+              ...newElements[elIndex],
+              data: {
+                ...newElements[elIndex].data,
+                blockNumber: (index + 1).toString()
+              }
+            };
+            numberedManzanaIds.add(m.id);
+          }
+        });
+      });
+
+      // Number remaining manzanas (not in any barrio)
+      const remainingManzanas = manzanas.filter(m => !numberedManzanaIds.has(m.id));
+      remainingManzanas.forEach((m, index) => {
+        const elIndex = newElements.findIndex(e => e.id === m.id);
+        if (elIndex !== -1) {
+          newElements[elIndex] = {
+            ...newElements[elIndex],
+            data: {
+              ...newElements[elIndex].data,
+              blockNumber: (index + 1).toString()
+            }
+          };
+        }
+      });
+
+      setHasUnsavedChanges(true);
+      return newElements;
     });
   };
 
@@ -1174,9 +1261,25 @@ export default function Croquis() {
             </TouchableOpacity>
           </View>
         ) : (
-          <Text style={tw`text-gray-400 text-center mt-10`}>
-            Selecciona un objeto en el mapa para ver sus detalles.
-          </Text>
+          <View style={tw`py-4`}>
+            <Text style={tw`text-gray-400 text-center mb-6`}>
+              Selecciona un objeto en el mapa para ver sus detalles.
+            </Text>
+            
+            <View style={tw`border-t border-gray-100 pt-6`}>
+              <Text style={tw`text-sm font-bold text-gray-700 mb-3`}>Acciones Globales</Text>
+              <TouchableOpacity 
+                onPress={renumberAllManzanas}
+                style={tw`bg-blue-50 p-3 rounded-lg border border-blue-100 flex-row items-center justify-center`}
+              >
+                <ListOrdered size={16} color="#0284c7" style={tw`mr-2`} />
+                <Text style={tw`text-blue-700 font-medium text-sm`}>Auto-numerar Manzanas</Text>
+              </TouchableOpacity>
+              <Text style={tw`text-xs text-gray-500 mt-2 text-center`}>
+                Reinicia la numeración (1, 2, 3...) para cada barrio.
+              </Text>
+            </View>
+          </View>
         )}
 
           <View style={tw`mt-auto pt-4`}>
