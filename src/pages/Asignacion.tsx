@@ -7,6 +7,7 @@ import { es } from "date-fns/locale";
 import { AlertCircle, CheckCircle, Map as MapIcon, Target } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
+import html2pdf from "html2pdf.js";
 
 interface Brigadista {
   id: string;
@@ -80,8 +81,6 @@ export default function Asignacion() {
   const [lugarType, setLugarType] = useState<"barrio" | "comarca">("barrio");
   const [lugarNombre, setLugarNombre] = useState("");
   const [manzanas, setManzanas] = useState(""); 
-  const [brigadistaId, setBrigadistaId] = useState("");
-  const [brigadistas, setBrigadistas] = useState<Brigadista[]>([]);
   
   const [allCroquis, setAllCroquis] = useState<CroquisData[]>([]);
   const [selectedCroquisId, setSelectedCroquisId] = useState("");
@@ -132,11 +131,7 @@ export default function Asignacion() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [bData, cData] = await Promise.all([
-          api.getBrigadistas(),
-          api.getAllCroquis()
-        ]);
-        setBrigadistas(bData);
+        const cData = await api.getAllCroquis();
         setAllCroquis(cData);
       } catch (e) {
         console.warn("Error fetching data", e);
@@ -203,8 +198,8 @@ export default function Asignacion() {
           )
         );
         setAvailableManzanas(manzanasInBarrio);
-        // By default select all manzanas in the barrio
-        setSelectedManzanas(manzanasInBarrio.map(m => m.data.blockNumber || m.id));
+        // By default, do NOT select any manzanas
+        setSelectedManzanas([]);
 
         // Auto-fit preview map to barrio bounds
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -340,7 +335,7 @@ export default function Asignacion() {
   };
 
   const handleSubmit = async () => {
-    if (!brigadistaId || !lugarNombre) {
+    if (!lugarNombre) {
       setValidationMsg({ type: 'error', text: "Completa todos los campos." });
       return;
     }
@@ -359,8 +354,8 @@ export default function Asignacion() {
         lugarType,
         lugarNombre,
         manzanas: lugarType === "barrio" ? manzanas.split(",").map(m => m.trim()).filter(Boolean) : [],
-        brigadistaId,
-        brigadistaNombre: brigadistas.find(b => b.id === brigadistaId)?.nombre || "Desconocido",
+        brigadistaId: "N/A",
+        brigadistaNombre: "N/A",
         fecha: new Date().toISOString(),
         status: "pendiente"
       });
@@ -368,9 +363,6 @@ export default function Asignacion() {
 
       // Print document
       if (Platform.OS === 'web') {
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          const brigadistaName = brigadistas.find(b => b.id === brigadistaId)?.nombre || 'Desconocido';
           const date = format(new Date(), "dd 'de' MMMM, yyyy", { locale: es });
           
           let mapImage = '';
@@ -408,207 +400,171 @@ export default function Asignacion() {
 
             tableRows += `
               <tr>
-                ${index === 0 ? `<td rowspan="${selectedManzanasData.length}" style="font-weight: bold; vertical-align: middle;">Trabajo No 1</td>` : ''}
-                <td style="text-align: center; font-weight: bold;">${label}</td>
-                <td style="text-align: center;">${isNaN(viviendas) ? '' : viviendas}</td>
-                <td style="text-align: center;">${isNaN(habitantes) ? '' : habitantes}</td>
-                <td></td>
-                <td>${ref}</td>
+                ${index === 0 ? `<td rowspan="${selectedManzanasData.length}" style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; vertical-align: middle;">Trabajo No 1</td>` : ''}
+                <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center; font-weight: bold;">${label}</td>
+                <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${isNaN(viviendas) ? '' : viviendas}</td>
+                <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${isNaN(habitantes) ? '' : habitantes}</td>
+                <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px;"></td>
+                <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px;">${ref}</td>
               </tr>
             `;
           });
 
-          printWindow.document.write(`
-            <html>
-              <head>
-                <title>Consolidado Diario - ${tipo.toUpperCase()}</title>
-                <style>
-                  @page { size: letter portrait; margin: 10mm; }
-                  body { 
-                    font-family: 'Arial', sans-serif; 
-                    padding: 0; 
-                    max-width: 100%; 
-                    margin: 0; 
-                    font-size: 10px; 
-                    line-height: 1.2;
-                  }
-                  .header { text-align: center; margin-bottom: 10px; position: relative; }
-                  .header h2, .header h3, .header h4 { margin: 2px 0; font-size: 14px; }
-                  .date-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin-top: 5px; }
-                  
-                  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-                  th, td { border: 1px solid #000; padding: 2px 4px; font-size: 10px; }
-                  th { background-color: #93c5fd !important; font-weight: bold; text-align: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                  .table-header-blue { background-color: #93c5fd !important; font-weight: bold; text-align: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                  .table-total { background-color: #fbbf24 !important; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                  
-                  .map-container { border: 2px solid #000; padding: 2px; margin-bottom: 10px; text-align: center; height: 200px; display: flex; align-items: center; justify-content: center; }
-                  .map-image { max-width: 100%; max-height: 100%; object-fit: contain; }
-                  
-                  .activities-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 10px; border: 1px solid #000; }
-                  .activities-col { border-right: 1px solid #000; }
-                  .activities-col:last-child { border-right: none; }
-                  .activity-row { display: flex; border-bottom: 1px solid #000; }
-                  .activity-row:last-child { border-bottom: none; }
-                  .activity-label { flex: 1; padding: 2px 4px; font-weight: bold; font-size: 9px; }
-                  .activity-value { width: 30px; border-left: 1px solid #000; }
-                  .activity-header { font-weight: bold; text-align: left; padding: 2px 4px; border-bottom: 1px solid #000; font-size: 9px; }
-                  
-                  .form-row { margin-bottom: 6px; display: flex; align-items: flex-end; }
-                  .form-label { font-weight: bold; margin-right: 5px; white-space: nowrap; font-size: 10px; }
-                  .form-line { flex: 1; border-bottom: 1px solid #000; height: 12px; }
-                  
-                  .signature-section { margin-top: 15px; }
-                  .signature-line { border-bottom: 1px solid #000; width: 100%; margin-top: 15px; }
-                  
-                  /* Force everything onto one page */
-                  html, body { height: 100%; overflow: hidden; }
-                  @media print {
-                    html, body { height: auto; overflow: visible; }
-                    .page-container { page-break-inside: avoid; }
-                  }
-                </style>
-              </head>
-              <body>
-                <div class="page-container">
-                <div class="header">
-                  <h3>MINISTERIO DE SALUD</h3>
-                  <h3>HOSPITAL PRIMARIO DE CAMOAPA</h3>
-                  <h4>PROGRAMA DE E.T.V</h4>
-                  <div class="date-row">
-                    <span>Consolidado Diario</span>
-                    <span>Fecha: ${date}</span>
-                  </div>
+          const htmlContent = `
+            <div id="pdf-content" style="padding: 15mm; width: 215.9mm; min-height: 355.6mm; box-sizing: border-box; background: white; font-family: 'Arial', sans-serif; font-size: 12px; line-height: 1.4; display: flex; flex-direction: column;">
+              <div class="header" style="text-align: center; margin-bottom: 20px;">
+                <h3 style="margin: 4px 0; font-size: 16px;">MINISTERIO DE SALUD</h3>
+                <h3 style="margin: 4px 0; font-size: 16px;">HOSPITAL PRIMARIO DE CAMOAPA</h3>
+                <h4 style="margin: 4px 0; font-size: 14px;">PROGRAMA DE E.T.V</h4>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; margin-top: 15px;">
+                  <span>Consolidado Diario</span>
+                  <span>Fecha: ${date}</span>
                 </div>
-                
-                <table>
-                  <tr>
-                    <td colspan="6" class="table-header-blue">PROGRAMA E.T.V CAMOAPA-BOACO</td>
-                  </tr>
-                  <tr>
-                    <td colspan="6" class="table-header-blue">RELACION POR MANZANA</td>
-                  </tr>
-                  <tr>
-                    <td colspan="6" class="table-header-blue">BARRIO: ${lugarNombre.toUpperCase()}</td>
-                  </tr>
-                  <tr>
-                    <th style="background-color: transparent;"></th>
-                    <th style="background-color: transparent;">Manz<br>No</th>
-                    <th style="background-color: transparent;">vivienda<br>Existentes</th>
-                    <th style="background-color: transparent;">No<br>Habitantes</th>
-                    <th style="background-color: transparent;">Casas<br>Nuevas</th>
-                    <th style="background-color: transparent;">Punto de Referencia</th>
-                  </tr>
-                  ${tableRows}
-                  <tr class="table-total">
-                    <td>TOTAL</td>
-                    <td style="text-align: center;">${selectedManzanasData.length}</td>
-                    <td style="text-align: center;">${totalViviendas || ''}</td>
-                    <td style="text-align: center;">${totalHabitantes || ''}</td>
-                    <td></td>
-                    <td></td>
-                  </tr>
-                </table>
+              </div>
+              
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <tr>
+                  <td colspan="6" style="background-color: #93c5fd; font-weight: bold; text-align: center; font-size: 14px; padding: 8px; border: 1px solid #000;">PROGRAMA E.T.V CAMOAPA-BOACO</td>
+                </tr>
+                <tr>
+                  <td colspan="6" style="background-color: #93c5fd; font-weight: bold; text-align: center; font-size: 14px; padding: 8px; border: 1px solid #000;">RELACION POR MANZANA</td>
+                </tr>
+                <tr>
+                  <td colspan="6" style="background-color: #93c5fd; font-weight: bold; text-align: center; font-size: 14px; padding: 8px; border: 1px solid #000;">BARRIO: ${lugarNombre.toUpperCase()}</td>
+                </tr>
+                <tr>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;"></th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;">Manz<br>No</th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;">vivienda<br>Existentes</th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;">No<br>Habitantes</th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;">Casas<br>Nuevas</th>
+                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: center;">Punto de Referencia</th>
+                </tr>
+                ${tableRows}
+                <tr style="background-color: #fbbf24; font-weight: bold;">
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px;">TOTAL</td>
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${selectedManzanasData.length}</td>
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${totalViviendas || ''}</td>
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${totalHabitantes || ''}</td>
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px;"></td>
+                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px;"></td>
+                </tr>
+              </table>
 
-                ${mapImage ? `
-                <div class="map-container">
-                  <img src="${mapImage}" class="map-image" />
-                </div>
-                ` : '<div class="map-container"><p>Sin mapa</p></div>'}
+              ${mapImage ? `
+              <div style="border: 2px solid #000; padding: 4px; margin-bottom: 20px; text-align: center; flex-grow: 1; min-height: 350px; display: flex; align-items: center; justify-content: center;">
+                <img src="${mapImage}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+              </div>
+              ` : '<div style="border: 2px solid #000; padding: 4px; margin-bottom: 20px; text-align: center; flex-grow: 1; min-height: 350px; display: flex; align-items: center; justify-content: center;"><p>Sin mapa</p></div>'}
 
-                <div class="activities-grid">
-                  <div class="activities-col">
-                    <div class="activity-header">ACTIVIDAD DE FUMIGACION</div>
-                    <div class="activity-row"><div class="activity-label">Viviendas Fumigadas</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Viviendas Cerradas</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Viviendas Renuentes</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Viviendas Deshabitada</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Manzanas Fumigadas</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Habitantes Protegidos</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Puntos Claves Fumigados</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Cipermetrina Gastada</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">&nbsp;</div><div class="activity-value"></div></div>
-                  </div>
-                  <div class="activities-col">
-                    <div class="activity-header">ACTIVIDAD DE APLICACION</div>
-                    <div class="activity-row"><div class="activity-label">Viviendas Inspeccionadas</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Viviendas Tratadas</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Viviendas Positivas</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Viviendas Cerradas</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Viviendas Desabitadas</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Viviendas Renuentes</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Total de Viviendas Visitadas</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Puntos clave Tratados</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">&nbsp;</div><div class="activity-value"></div></div>
-                  </div>
-                  <div class="activities-col">
-                    <div class="activity-header">DEPOSITOS</div>
-                    <div class="activity-row"><div class="activity-label">Depósitos Eliminados</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Depósitos Cepillados</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Depósitos Tratados</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Depósitos Inspeccionados</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Depósitos Positivos</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">Abate en Kg Utilizado</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">&nbsp;</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">&nbsp;</div><div class="activity-value"></div></div>
-                    <div class="activity-row"><div class="activity-label">&nbsp;</div><div class="activity-value"></div></div>
-                  </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 20px; border: 1px solid #000;">
+                <div style="border-right: 1px solid #000;">
+                  <div style="font-weight: bold; text-align: center; padding: 6px 8px; border-bottom: 1px solid #000; font-size: 12px; background-color: #f1f5f9;">ACTIVIDAD DE FUMIGACION</div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Fumigadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Cerradas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Renuentes</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Deshabitada</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Manzanas Fumigadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Habitantes Protegidos</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Puntos Claves Fumigados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Cipermetrina Gastada</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">&nbsp;</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
                 </div>
+                <div style="border-right: 1px solid #000;">
+                  <div style="font-weight: bold; text-align: center; padding: 6px 8px; border-bottom: 1px solid #000; font-size: 12px; background-color: #f1f5f9;">ACTIVIDAD DE APLICACION</div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Inspeccionadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Tratadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Positivas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Cerradas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Desabitadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Viviendas Renuentes</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Total de Viviendas Visitadas</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Puntos clave Tratados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">&nbsp;</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                </div>
+                <div>
+                  <div style="font-weight: bold; text-align: center; padding: 6px 8px; border-bottom: 1px solid #000; font-size: 12px; background-color: #f1f5f9;">DEPOSITOS</div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Depósitos Eliminados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Depósitos Cepillados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Depósitos Tratados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Depósitos Inspeccionados</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Depósitos Positivos</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">Abate en Kg Utilizado</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">&nbsp;</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; border-bottom: 1px solid #000; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">&nbsp;</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                  <div style="display: flex; min-height: 24px; align-items: center;"><div style="flex: 1; padding: 4px 8px; font-weight: bold; font-size: 11px;">&nbsp;</div><div style="width: 40px; border-left: 1px solid #000; height: 100%;"></div></div>
+                </div>
+              </div>
 
-                <div class="form-row">
-                  <span class="form-label">Nombres y Apellidos del Caso Sospechoso</span>
-                  <div class="form-line"></div>
-                </div>
-                <div class="form-row">
-                  <span class="form-label">Jefe de Familia del Caso Sospechoso</span>
-                  <div class="form-line"></div>
-                </div>
-                <div class="form-row">
-                  <span class="form-label">Fecha de Nacimiento</span>
-                  <div class="form-line" style="flex: 0.5;"></div>
-                  <span class="form-label" style="margin-left: 10px;">Edad</span>
-                  <div class="form-line" style="flex: 0.2;"></div>
-                  <span class="form-label" style="margin-left: 10px;">Sexo</span>
-                  <div class="form-line" style="flex: 0.2;"></div>
-                  <span class="form-label" style="margin-left: 10px;">Barrio O Comunidad</span>
-                  <div class="form-line"></div>
-                </div>
-                <div class="form-row">
-                  <span class="form-label">Dirección</span>
-                  <div class="form-line"></div>
-                </div>
-                <div class="form-row">
-                  <span class="form-label">Observacion</span>
-                  <div class="form-line"></div>
-                </div>
-                <div class="form-row">
-                  <div class="form-line"></div>
-                </div>
+              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Nombres y Apellidos del Caso Sospechoso</span>
+                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              </div>
+              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Jefe de Familia del Caso Sospechoso</span>
+                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              </div>
+              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Fecha de Nacimiento</span>
+                <div style="flex: 0.5; border-bottom: 1px solid #000; height: 16px;"></div>
+                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 12px;">Edad</span>
+                <div style="flex: 0.2; border-bottom: 1px solid #000; height: 16px;"></div>
+                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 12px;">Sexo</span>
+                <div style="flex: 0.2; border-bottom: 1px solid #000; height: 16px;"></div>
+                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 12px;">Barrio O Comunidad</span>
+                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              </div>
+              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Dirección</span>
+                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              </div>
+              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Observacion</span>
+                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              </div>
+              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
+                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              </div>
 
-                <div class="signature-section">
-                  <span class="form-label">Nombre / Apellido y Firma de Recursos Participantes: </span>
-                  <span style="font-weight: bold;">${brigadistaName}</span>
-                  <div class="signature-line"></div>
-                </div>
-                </div>
+              <div style="margin-top: auto; padding-top: 20px;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 12px;">Nombre / Apellido y Firma de Recursos Participantes: </span>
+                <div style="border-bottom: 1px solid #000; width: 100%; margin-top: 25px;"></div>
+              </div>
+            </div>
+          `;
 
-                <script>
-                  window.onload = function() { 
-                    setTimeout(function() {
-                      window.print(); 
-                    }, 500);
-                  }
-                </script>
-              </body>
-            </html>
-          `);
-          printWindow.document.close();
-        }
+          const container = document.createElement('div');
+          container.style.position = 'absolute';
+          container.style.left = '-9999px';
+          container.style.top = '-9999px';
+          container.innerHTML = htmlContent;
+          document.body.appendChild(container);
+
+          const opt = {
+            margin:       0,
+            filename:     `Asignacion_${lugarNombre}_${format(new Date(), 'yyyy-MM-dd')}.pdf`,
+            image:        { type: 'jpeg' as const, quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'mm' as const, format: 'legal' as const, orientation: 'portrait' as const }
+          };
+
+          html2pdf().set(opt).from(container.firstElementChild as HTMLElement).save().then(() => {
+            document.body.removeChild(container);
+          });
       }
 
+      // Reset form state completely
+      setTipo("fumigacion");
+      setLugarType("barrio");
       setLugarNombre("");
       setManzanas("");
-      setBrigadistaId("");
+      setSelectedCroquisId("");
+      setSelectedBarrioId("");
+      setAvailableBarrios([]);
+      setAvailableManzanas([]);
+      setSelectedManzanas([]);
+      setFocoPoint(null);
+      setModoFoco(false);
       setValidationMsg(null);
     } catch (e) {
       console.warn("Error saving assignment:", e);
@@ -632,11 +588,11 @@ export default function Asignacion() {
               onPress={() => setTipo("fumigacion")}
               style={tw`flex-1 p-3 rounded-lg border items-center ${
                 tipo === "fumigacion" 
-                  ? "bg-blue-50 border-blue-500" 
+                  ? "bg-[#dcf0fa] border-sky-500" 
                   : "border-gray-200"
               }`}
             >
-              <Text style={tw`font-medium ${tipo === "fumigacion" ? "text-blue-700" : "text-gray-600"}`}>
+              <Text style={tw`font-medium ${tipo === "fumigacion" ? "text-blue-900" : "text-gray-600"}`}>
                 Fumigación
               </Text>
             </TouchableOpacity>
@@ -658,19 +614,6 @@ export default function Asignacion() {
             <Text style={tw`text-xs text-gray-500`}>
               Bloqueo: {tipo === "fumigacion" ? "7 días" : "30 días"}
             </Text>
-          </View>
-        </View>
-
-        {/* Brigadista */}
-        <View style={tw`mb-4`}>
-          <Text style={tw`text-sm font-medium text-gray-700 mb-1`}>Brigadista</Text>
-          <View style={tw`border border-gray-300 rounded-lg bg-gray-50 overflow-hidden`}>
-            <CustomPicker
-              selectedValue={brigadistaId}
-              onValueChange={setBrigadistaId}
-              placeholder="Seleccionar brigadista..."
-              items={brigadistas.map(b => ({ label: b.nombre, value: b.id }))}
-            />
           </View>
         </View>
 
@@ -706,7 +649,23 @@ export default function Asignacion() {
         {selectedBarrioId !== "" && availableManzanas.length > 0 && (
           <View style={tw`mb-6`}>
             <View style={tw`flex-row items-center justify-between mb-2`}>
-              <Text style={tw`text-sm font-medium text-gray-700`}>Seleccionar Manzanas del Barrio</Text>
+              <View style={tw`flex-row items-center gap-2`}>
+                <Text style={tw`text-sm font-medium text-gray-700`}>Seleccionar Manzanas del Barrio</Text>
+                <TouchableOpacity 
+                  onPress={() => {
+                    if (selectedManzanas.length === availableManzanas.length) {
+                      setSelectedManzanas([]);
+                    } else {
+                      setSelectedManzanas(availableManzanas.map(m => m.data.blockNumber || m.id.split('-').pop()!));
+                    }
+                  }}
+                  style={tw`px-2 py-1 bg-gray-200 rounded-md`}
+                >
+                  <Text style={tw`text-xs text-gray-700 font-medium`}>
+                    {selectedManzanas.length === availableManzanas.length ? 'Desmarcar Todas' : 'Marcar Todas'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity 
                 onPress={() => {
                   setModoFoco(!modoFoco);
@@ -738,10 +697,10 @@ export default function Asignacion() {
                     key={m.id}
                     onPress={() => toggleManzana(label!)}
                     style={tw`px-3 py-2 rounded-lg border ${
-                      isSelected ? 'bg-blue-600 border-blue-700' : 'bg-white border-gray-300'
+                      isSelected ? 'bg-[#dcf0fa] border-sky-500' : 'bg-white border-gray-300'
                     }`}
                   >
-                    <Text style={tw`text-xs font-bold ${isSelected ? 'text-white' : 'text-gray-700'}`}>
+                    <Text style={tw`text-xs font-bold ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
                       M-{label}
                     </Text>
                   </TouchableOpacity>
@@ -791,8 +750,8 @@ export default function Asignacion() {
                       <Line
                         points={availableBarrios.find(b => b.id === selectedBarrioId)!.points!}
                         closed={true}
-                        fill="rgba(59, 130, 246, 0.1)"
-                        stroke="#2563eb"
+                        fill="rgba(220, 240, 250, 0.5)"
+                        stroke="#0284c7"
                         strokeWidth={2 / previewScale}
                       />
                     )}
@@ -804,7 +763,7 @@ export default function Asignacion() {
                           <Line
                             points={m.points!}
                             closed={true}
-                            fill={selectedManzanas.includes(m.data.blockNumber || m.id.split('-').pop()!) ? "rgba(37, 99, 235, 0.6)" : "rgba(209, 213, 219, 0.5)"}
+                            fill={selectedManzanas.includes(m.data.blockNumber || m.id.split('-').pop()!) ? "rgba(220, 240, 250, 0.8)" : "rgba(209, 213, 219, 0.5)"}
                             stroke="#1f2937"
                             strokeWidth={2 / previewScale}
                           />
@@ -851,56 +810,6 @@ export default function Asignacion() {
           </View>
         )}
 
-        {/* Manual Overrides (Hidden if using selective mode, but kept for compatibility) */}
-        {selectedBarrioId === "" && (
-          <View style={tw`flex-row gap-3 mb-4`}>
-             <View style={tw`flex-1`}>
-              <Text style={tw`text-sm font-medium text-gray-700 mb-1`}>Ubicación</Text>
-              <View style={tw`border border-gray-300 rounded-lg bg-gray-50 overflow-hidden`}>
-                <CustomPicker
-                  selectedValue={lugarType}
-                  onValueChange={setLugarType}
-                  placeholder="Seleccionar tipo..."
-                  items={[
-                    { label: "Barrio", value: "barrio" },
-                    { label: "Comarca", value: "comarca" }
-                  ]}
-                />
-              </View>
-            </View>
-            <View style={tw`flex-1`}>
-               <Text style={tw`text-sm font-medium text-gray-700 mb-1`}>Nombre</Text>
-               <TextInput
-                value={lugarNombre}
-                onChangeText={setLugarNombre}
-                placeholder={lugarType === "barrio" ? "Ej. San Judas" : "Ej. Las Jaguitas"}
-                style={tw`w-full p-3 bg-gray-50 border border-gray-300 rounded-lg`}
-              />
-            </View>
-          </View>
-        )}
-
-        {selectedBarrioId === "" && lugarType === "barrio" && (
-          <View style={tw`mb-4`}>
-            <Text style={tw`text-sm font-medium text-gray-700 mb-1`}>Manzanas</Text>
-            <View style={tw`flex-row gap-2`}>
-              <TextInput
-                value={manzanas}
-                onChangeText={setManzanas}
-                placeholder="Ej. A-1, A-2, B-5"
-                style={tw`flex-1 p-3 bg-gray-50 border border-gray-300 rounded-lg`}
-              />
-              <TouchableOpacity
-                onPress={checkAvailability}
-                style={tw`bg-gray-100 px-4 rounded-lg justify-center`}
-              >
-                <Text style={tw`text-gray-600 font-medium text-sm`}>Verificar</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={tw`text-xs text-gray-500 mt-1`}>Separa con comas.</Text>
-          </View>
-        )}
-
         {/* Validation Msg */}
         {validationMsg && (
           <View style={tw`p-3 rounded-lg flex-row items-start ${
@@ -919,9 +828,9 @@ export default function Asignacion() {
         <TouchableOpacity
           onPress={handleSubmit}
           disabled={loading}
-          style={tw`w-full bg-blue-600 py-3 rounded-xl shadow-lg mt-4 items-center`}
+          style={tw`w-full bg-[#dcf0fa] py-3 rounded-xl shadow-lg mt-4 items-center`}
         >
-          <Text style={tw`text-white font-bold text-base`}>
+          <Text style={tw`text-blue-900 font-bold text-base`}>
             {loading ? "Guardando..." : "Asignar Trabajo"}
           </Text>
         </TouchableOpacity>

@@ -113,10 +113,10 @@ export default function Historial() {
           <TouchableOpacity
             onPress={() => setFilterType("fumigacion")}
             style={tw`px-4 py-2 rounded-full mr-2 ${
-              filterType === "fumigacion" ? "bg-blue-100" : "bg-gray-100"
+              filterType === "fumigacion" ? "bg-[#dcf0fa]" : "bg-gray-100"
             }`}
           >
-            <Text style={tw`text-sm font-medium ${filterType === "fumigacion" ? "text-blue-700" : "text-gray-600"}`}>
+            <Text style={tw`text-sm font-medium ${filterType === "fumigacion" ? "text-blue-900" : "text-gray-600"}`}>
               Fumigación
             </Text>
           </TouchableOpacity>
@@ -151,10 +151,10 @@ export default function Historial() {
                   <Text style={tw`text-xs text-gray-500 uppercase font-semibold`}>{item.lugarType}</Text>
                 </View>
                 <View style={tw`px-3 py-1 rounded-full ${
-                  item.tipo === 'fumigacion' ? 'bg-blue-100' : 'bg-green-100'
+                  item.tipo === 'fumigacion' ? 'bg-[#dcf0fa]' : 'bg-green-100'
                 }`}>
                   <Text style={tw`text-xs font-bold uppercase ${
-                    item.tipo === 'fumigacion' ? 'text-blue-700' : 'text-green-700'
+                    item.tipo === 'fumigacion' ? 'text-blue-900' : 'text-green-700'
                   }`}>
                     {item.tipo}
                   </Text>
@@ -189,10 +189,7 @@ export default function Historial() {
                 </View>
               )}
 
-              <View style={tw`flex-row justify-between items-center pt-3 border-t border-gray-50`}>
-                <Text style={tw`text-sm text-gray-500`}>
-                  Brigadista: <Text style={tw`font-medium text-gray-700`}>{item.brigadistaNombre}</Text>
-                </Text>
+              <View style={tw`flex-row justify-end items-center pt-3 border-t border-gray-50`}>
                 <TouchableOpacity
                   onPress={() => handleDelete(item.id)}
                   style={tw`bg-red-50 p-2 rounded-lg border border-red-100`}

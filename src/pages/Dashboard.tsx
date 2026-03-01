@@ -44,20 +44,20 @@ export default function Dashboard() {
   return (
     <View style={tw`flex-1`}>
       {/* Header Card */}
-      <View style={tw`bg-blue-600 rounded-2xl p-6 shadow-lg mb-6`}>
+      <View style={tw`bg-[#dcf0fa] rounded-2xl p-6 shadow-lg mb-6`}>
         
         <View style={tw`flex-row gap-4`}>
-          <View style={tw`bg-white/20 rounded-xl p-3 flex-1 items-center`}>
-            <Text style={tw`text-2xl font-bold text-white`}>
+          <View style={tw`bg-white/40 rounded-xl p-3 flex-1 items-center`}>
+            <Text style={tw`text-2xl font-bold text-blue-900`}>
               {asignaciones.filter(a => a.tipo === 'fumigacion').length}
             </Text>
-            <Text style={tw`text-xs text-white opacity-80`}>Fumigaciones</Text>
+            <Text style={tw`text-xs text-blue-800 opacity-80`}>Fumigaciones</Text>
           </View>
-          <View style={tw`bg-white/20 rounded-xl p-3 flex-1 items-center`}>
-            <Text style={tw`text-2xl font-bold text-white`}>
+          <View style={tw`bg-white/40 rounded-xl p-3 flex-1 items-center`}>
+            <Text style={tw`text-2xl font-bold text-blue-900`}>
               {asignaciones.filter(a => a.tipo === 'abatizacion').length}
             </Text>
-            <Text style={tw`text-xs text-white opacity-80`}>Abatizaciones</Text>
+            <Text style={tw`text-xs text-blue-800 opacity-80`}>Abatizaciones</Text>
           </View>
         </View>
       </View>
@@ -68,8 +68,8 @@ export default function Dashboard() {
         <View style={tw`gap-3`}>
           {asignaciones.map((a) => (
             <View key={a.id} style={tw`bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-row items-start`}>
-              <View style={tw`mt-1 p-2 rounded-full mr-3 ${a.tipo === 'fumigacion' ? 'bg-blue-100' : 'bg-green-100'}`}>
-                {a.tipo === 'fumigacion' ? <Clock size={16} color="#2563eb" /> : <CheckCircle size={16} color="#16a34a" />}
+              <View style={tw`mt-1 p-2 rounded-full mr-3 ${a.tipo === 'fumigacion' ? 'bg-[#dcf0fa]' : 'bg-green-100'}`}>
+                {a.tipo === 'fumigacion' ? <Clock size={16} color="#0284c7" /> : <CheckCircle size={16} color="#16a34a" />}
               </View>
               <View style={tw`flex-1`}>
                 <View style={tw`flex-row justify-between items-start`}>

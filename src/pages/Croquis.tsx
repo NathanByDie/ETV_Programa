@@ -4,6 +4,7 @@ import { Stage, Layer, Line, Circle, Rect, Text as KonvaText, Group } from "reac
 import { Trash2, MousePointer, PenTool, Square, Circle as CircleIcon, Map as MapIcon, Save, ZoomIn, ZoomOut, Move, Undo, Redo, XCircle, MapPin, Plus, Edit2, ChevronLeft } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
+import { useUnsavedChanges } from "../contexts/UnsavedChangesContext";
 
 
 type ToolType = 'select' | 'street' | 'manzana' | 'vivienda' | 'barrio' | 'pan' | 'reference';
@@ -31,6 +32,7 @@ interface Element {
 }
 
 export default function Croquis() {
+  const { setHasUnsavedChanges } = useUnsavedChanges();
   const [viewMode, setViewMode] = useState<'list' | 'edit'>('list');
   const [croquisList, setCroquisList] = useState<any[]>([]);
   const [currentCroquisId, setCurrentCroquisId] = useState<string | null>(null);
@@ -46,6 +48,17 @@ export default function Croquis() {
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
   const [loading, setLoading] = useState(false);
   const [cursorPos, setCursorPos] = useState<{x: number, y: number} | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
   
   // Properties form state
   const [propLabel, setPropLabel] = useState("");
@@ -87,6 +100,7 @@ export default function Croquis() {
     setHistory([]);
     setHistoryStep(-1);
     setViewMode('edit');
+    setHasUnsavedChanges(false);
   };
 
   const handleEdit = (croquis: any) => {
@@ -96,6 +110,7 @@ export default function Croquis() {
     setHistory([croquis.elements || []]);
     setHistoryStep(0);
     setViewMode('edit');
+    setHasUnsavedChanges(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -197,7 +212,8 @@ export default function Croquis() {
       const success = await api.saveCroquis(currentCroquisName, elements, currentCroquisId || undefined);
       if (success) {
         alert("Croquis guardado exitosamente.");
-        setViewMode('list');
+        setHasUnsavedChanges(false);
+        // Do not redirect to list, let user continue editing
       } else {
         alert("Error al guardar croquis.");
       }
@@ -250,6 +266,7 @@ export default function Croquis() {
         newHistory.push(elements);
         setHistory(newHistory);
         setHistoryStep(newHistory.length - 1);
+        setHasUnsavedChanges(true);
       }
     }
   }, [elements]);
@@ -464,7 +481,7 @@ export default function Croquis() {
         type: 'barrio',
         points: [...currentPoints],
         data: { label: 'Barrio Nuevo' },
-        style: { stroke: '#2563eb', strokeWidth: 2, fill: 'rgba(59, 130, 246, 0.1)' }
+        style: { stroke: '#0284c7', strokeWidth: 2, fill: 'rgba(220, 240, 250, 0.5)' }
       };
     }
 
@@ -506,60 +523,68 @@ export default function Croquis() {
       }
       return el;
     }));
+    setHasUnsavedChanges(true);
   };
 
   const deleteSelected = () => {
     if (!selectedId) return;
-    if (!confirm("¿Eliminar elemento seleccionado? Si es una manzana, se eliminarán también sus viviendas.")) return;
+    
+    setConfirmDialog({
+      visible: true,
+      title: 'Eliminar Objeto',
+      message: '¿Eliminar elemento seleccionado? Si es una manzana, se eliminarán también sus viviendas.',
+      onConfirm: () => {
+        const selectedElement = elements.find(e => e.id === selectedId);
+        if (!selectedElement) return;
 
-    const selectedElement = elements.find(e => e.id === selectedId);
-    if (!selectedElement) return;
+        let newElements = elements.filter(e => e.id !== selectedId);
 
-    let newElements = elements.filter(e => e.id !== selectedId);
+        if (selectedElement.type === 'manzana' && selectedElement.points) {
+          const housesInManzana = elements.filter(el => 
+            el.type === 'vivienda' && isPointInPolygon(el.x!, el.y!, selectedElement.points!)
+          );
+          const houseIds = housesInManzana.map(h => h.id);
+          newElements = newElements.filter(e => !houseIds.includes(e.id));
+        }
 
-    if (selectedElement.type === 'manzana' && selectedElement.points) {
-      const housesInManzana = elements.filter(el => 
-        el.type === 'vivienda' && isPointInPolygon(el.x!, el.y!, selectedElement.points!)
-      );
-      const houseIds = housesInManzana.map(h => h.id);
-      newElements = newElements.filter(e => !houseIds.includes(e.id));
-    }
+        if (selectedElement.type === 'vivienda') {
+          const parentManzana = elements.find(m => 
+            m.type === 'manzana' && m.points && isPointInPolygon(selectedElement.x!, selectedElement.y!, m.points)
+          );
 
-    if (selectedElement.type === 'vivienda') {
-      const parentManzana = elements.find(m => 
-        m.type === 'manzana' && m.points && isPointInPolygon(selectedElement.x!, selectedElement.y!, m.points)
-      );
+          if (parentManzana && parentManzana.points) {
+            const siblings = newElements.filter(el => 
+              el.type === 'vivienda' && isPointInPolygon(el.x!, el.y!, parentManzana.points!)
+            );
 
-      if (parentManzana && parentManzana.points) {
-        const siblings = newElements.filter(el => 
-          el.type === 'vivienda' && isPointInPolygon(el.x!, el.y!, parentManzana.points!)
-        );
+            siblings.sort((a, b) => {
+              const nA = parseInt(a.data.label || '0', 10);
+              const nB = parseInt(b.data.label || '0', 10);
+              return nA - nB;
+            });
 
-        siblings.sort((a, b) => {
-          const nA = parseInt(a.data.label || '0', 10);
-          const nB = parseInt(b.data.label || '0', 10);
-          return nA - nB;
-        });
+            const updates = new Map();
+            siblings.forEach((house, index) => {
+              updates.set(house.id, (index + 1).toString());
+            });
 
-        const updates = new Map();
-        siblings.forEach((house, index) => {
-          updates.set(house.id, (index + 1).toString());
-        });
-
-        newElements = newElements.map(el => {
-          if (updates.has(el.id)) {
-            return {
-              ...el,
-              data: { ...el.data, label: updates.get(el.id) }
-            };
+            newElements = newElements.map(el => {
+              if (updates.has(el.id)) {
+                return {
+                  ...el,
+                  data: { ...el.data, label: updates.get(el.id) }
+                };
+              }
+              return el;
+            });
           }
-          return el;
-        });
-      }
-    }
+        }
 
-    setElements(newElements);
-    setSelectedId(null);
+        setElements(newElements);
+        setSelectedId(null);
+        setHasUnsavedChanges(true);
+      }
+    });
   };
 
   const Tools = [
@@ -579,10 +604,10 @@ export default function Croquis() {
           <Text style={tw`text-2xl font-bold text-gray-800`}>Mis Croquis</Text>
           <TouchableOpacity
             onPress={handleCreateNew}
-            style={tw`bg-blue-600 px-4 py-2 rounded-lg flex-row items-center shadow-sm`}
+            style={tw`bg-[#dcf0fa] px-4 py-2 rounded-lg flex-row items-center shadow-sm`}
           >
-            <Plus size={20} color="#fff" style={tw`mr-2`} />
-            <Text style={tw`text-white font-bold`}>Crear Nuevo</Text>
+            <Plus size={20} color="#1e3a8a" style={tw`mr-2`} />
+            <Text style={tw`text-blue-900 font-bold`}>Crear Nuevo</Text>
           </TouchableOpacity>
         </View>
 
@@ -595,9 +620,9 @@ export default function Croquis() {
             <Text style={tw`text-gray-500 text-center mb-6`}>Crea tu primer croquis para empezar a asignar trabajos.</Text>
             <TouchableOpacity
               onPress={handleCreateNew}
-              style={tw`bg-blue-100 px-6 py-3 rounded-lg border border-blue-200`}
+              style={tw`bg-[#dcf0fa] px-6 py-3 rounded-lg border border-sky-200`}
             >
-              <Text style={tw`text-blue-700 font-bold`}>Crear Croquis</Text>
+              <Text style={tw`text-blue-900 font-bold`}>Crear Croquis</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -606,7 +631,7 @@ export default function Croquis() {
               {croquisList.map((croquis) => (
                 <View key={croquis.id} style={tw`bg-white p-5 rounded-xl shadow-sm border border-gray-100 w-full sm:w-[48%] lg:w-[31%]`}>
                   <View style={tw`flex-row items-center mb-3`}>
-                    <MapIcon size={24} color="#2563eb" style={tw`mr-3`} />
+                    <MapIcon size={24} color="#0284c7" style={tw`mr-3`} />
                     <Text style={tw`text-lg font-bold text-gray-800 flex-1`} numberOfLines={1}>
                       {croquis.nombre}
                     </Text>
@@ -625,9 +650,9 @@ export default function Croquis() {
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleEdit(croquis)}
-                        style={tw`bg-blue-50 p-2 rounded-lg border border-blue-100`}
+                        style={tw`bg-[#dcf0fa] p-2 rounded-lg border border-sky-200`}
                       >
-                        <MapIcon size={16} color="#2563eb" />
+                        <MapIcon size={16} color="#0284c7" />
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleDelete(croquis.id)}
@@ -664,9 +689,9 @@ export default function Croquis() {
                 </TouchableOpacity>
                 <TouchableOpacity 
                   onPress={confirmRename}
-                  style={tw`px-4 py-2 rounded-lg bg-blue-600`}
+                  style={tw`px-4 py-2 rounded-lg bg-[#dcf0fa]`}
                 >
-                  <Text style={tw`text-white font-medium`}>Guardar</Text>
+                  <Text style={tw`text-blue-900 font-medium`}>Guardar</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -707,9 +732,15 @@ export default function Croquis() {
         <View style={tw`flex-row items-center`}>
           <TouchableOpacity 
             onPress={() => {
-              if (window.confirm("¿Salir sin guardar? Se perderán los cambios no guardados.")) {
-                setViewMode('list');
-              }
+              setConfirmDialog({
+                visible: true,
+                title: 'Salir sin guardar',
+                message: '¿Salir sin guardar? Se perderán los cambios no guardados.',
+                onConfirm: () => {
+                  setHasUnsavedChanges(false);
+                  setViewMode('list');
+                }
+              });
             }}
             style={tw`mr-4 p-2 bg-gray-100 rounded-full`}
           >
@@ -719,16 +750,16 @@ export default function Croquis() {
             value={currentCroquisName}
             onChangeText={setCurrentCroquisName}
             placeholder="Nombre del Croquis"
-            style={tw`text-lg font-bold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 pb-1 min-w-[200px]`}
+            style={tw`text-lg font-bold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-sky-500 pb-1 min-w-[200px]`}
           />
         </View>
         <TouchableOpacity
           onPress={saveCroquis}
           disabled={loading}
-          style={tw`bg-blue-600 px-4 py-2 rounded-lg flex-row items-center shadow-sm ${loading ? 'opacity-50' : ''}`}
+          style={tw`bg-[#dcf0fa] px-4 py-2 rounded-lg flex-row items-center shadow-sm ${loading ? 'opacity-50' : ''}`}
         >
-          <Save size={18} color="#fff" style={tw`mr-2`} />
-          <Text style={tw`text-white font-bold`}>{loading ? 'Guardando...' : 'Guardar Croquis'}</Text>
+          <Save size={18} color="#1e3a8a" style={tw`mr-2`} />
+          <Text style={tw`text-blue-900 font-bold`}>{loading ? 'Guardando...' : 'Guardar Croquis'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -739,9 +770,9 @@ export default function Croquis() {
             <TouchableOpacity
               key={t.id}
               onPress={() => changeTool(t.id as ToolType)}
-              style={tw`p-2 rounded-lg items-center justify-center w-16 ${tool === t.id ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
+              style={tw`p-2 rounded-lg items-center justify-center w-16 ${tool === t.id ? 'bg-[#dcf0fa]' : 'hover:bg-gray-100'}`}
             >
-              <t.icon size={20} color={tool === t.id ? '#2563eb' : '#4b5563'} />
+              <t.icon size={20} color={tool === t.id ? '#0284c7' : '#4b5563'} />
               <Text style={tw`text-[9px] text-center mt-1 text-gray-600 leading-tight`}>{t.label}</Text>
             </TouchableOpacity>
           ))}
@@ -841,7 +872,7 @@ export default function Croquis() {
                     {isSelected && (
                       <Line
                         points={el.points}
-                        stroke="#2563eb"
+                        stroke="#0284c7"
                         strokeWidth={(el.style?.strokeWidth || 20) + 6}
                         lineCap="round"
                         lineJoin="round"
@@ -869,7 +900,7 @@ export default function Croquis() {
                     <Line
                       points={el.points}
                       closed={true}
-                      stroke={isSelected ? '#2563eb' : el.style?.stroke}
+                      stroke={isSelected ? '#0284c7' : el.style?.stroke}
                       fill={el.style?.fill}
                       strokeWidth={el.style?.strokeWidth}
                     />
@@ -877,10 +908,10 @@ export default function Croquis() {
                        <KonvaText
                         x={centroid.x}
                         y={centroid.y}
-                        offsetX={10}
-                        offsetY={10}
+                        offsetX={30}
+                        offsetY={30}
                         text={el.data.blockNumber}
-                        fontSize={16}
+                        fontSize={48}
                         fontStyle="bold"
                         fill="#000"
                         align="center"
@@ -891,8 +922,8 @@ export default function Croquis() {
                         x={centroid.x}
                         y={centroid.y}
                         text={el.data.label}
-                        fontSize={14}
-                        fill="#2563eb"
+                        fontSize={40}
+                        fill="#0284c7"
                         fontStyle="italic"
                        />
                     )}
@@ -909,20 +940,21 @@ export default function Croquis() {
                     onTap={() => tool === 'select' && setSelectedId(el.id)}
                   >
                     <Rect
-                      width={12}
-                      height={12}
-                      offsetX={6}
-                      offsetY={6}
-                      fill={isSelected ? '#2563eb' : el.style?.fill}
+                      width={32}
+                      height={32}
+                      offsetX={16}
+                      offsetY={16}
+                      fill={isSelected ? '#0284c7' : el.style?.fill}
                       stroke={el.style?.stroke}
-                      strokeWidth={1}
+                      strokeWidth={2}
                     />
                     <KonvaText
-                      y={-18}
-                      x={-5}
+                      y={-45}
+                      x={-15}
                       text={el.data.label}
-                      fontSize={10}
+                      fontSize={28}
                       fill="#000"
+                      fontStyle="bold"
                     />
                   </Group>
                 );
@@ -937,22 +969,22 @@ export default function Croquis() {
                     onTap={() => tool === 'select' && setSelectedId(el.id)}
                   >
                     <Circle
-                      radius={8}
-                      fill={isSelected ? '#2563eb' : el.style?.fill}
+                      radius={24}
+                      fill={isSelected ? '#0284c7' : el.style?.fill}
                       stroke={el.style?.stroke}
-                      strokeWidth={1}
+                      strokeWidth={2}
                     />
                     <Circle
-                      radius={3}
+                      radius={8}
                       fill="#fff"
                     />
                     <KonvaText
-                      y={-22}
+                      y={-55}
                       x={-50}
                       width={100}
                       align="center"
                       text={el.data.label}
-                      fontSize={12}
+                      fontSize={32}
                       fill="#000"
                       fontStyle="bold"
                     />
@@ -966,7 +998,7 @@ export default function Croquis() {
             {currentPoints.length > 0 && (
               <Line
                 points={currentPoints}
-                stroke="#2563eb"
+                stroke="#0284c7"
                 strokeWidth={2}
                 dash={[10, 5]}
                 closed={tool === 'manzana' || tool === 'barrio'}
@@ -984,8 +1016,8 @@ export default function Croquis() {
                     cursorPos.y
                   ]}
                   stroke="#ef4444"
-                  strokeWidth={2}
-                  dash={[5, 5]}
+                  strokeWidth={2 / stageScale}
+                  dash={[5 / stageScale, 5 / stageScale]}
                 />
                 {(() => {
                   const lastX = currentPoints[currentPoints.length - 2];
@@ -998,19 +1030,19 @@ export default function Croquis() {
                   return (
                     <Group x={midX} y={midY}>
                       <Rect
-                        x={-25}
-                        y={-10}
-                        width={50}
-                        height={20}
+                        x={-25 / stageScale}
+                        y={-10 / stageScale}
+                        width={50 / stageScale}
+                        height={20 / stageScale}
                         fill="#ef4444"
-                        cornerRadius={10}
+                        cornerRadius={10 / stageScale}
                       />
                       <KonvaText
-                        x={-25}
-                        y={-6}
-                        width={50}
+                        x={-25 / stageScale}
+                        y={-6 / stageScale}
+                        width={50 / stageScale}
                         text={`${distanceMeters}m`}
-                        fontSize={10}
+                        fontSize={10 / stageScale}
                         fill="#ffffff"
                         align="center"
                         fontStyle="bold"
@@ -1037,20 +1069,21 @@ export default function Croquis() {
           {currentPoints.length > 0 && (
             <TouchableOpacity
               onPress={handleFinishDrawing}
-              style={tw`bg-blue-600 px-6 py-3 rounded-full shadow-lg z-20`}
+              style={tw`bg-[#dcf0fa] px-6 py-3 rounded-full shadow-lg z-20`}
             >
-              <Text style={tw`text-white font-bold`}>Terminar Dibujo</Text>
+              <Text style={tw`text-blue-900 font-bold`}>Terminar Dibujo</Text>
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       {/* Properties Panel */}
-      <View style={tw`w-72 bg-white border-l border-gray-200 p-4 shadow-sm z-10`}>
-        <Text style={tw`text-lg font-bold text-gray-800 mb-4`}>Propiedades</Text>
-        
-        {selectedId ? (
-          <View style={tw`gap-4`}>
+      <View style={tw`w-72 bg-white border-l border-gray-200 shadow-sm z-10 flex-col`}>
+        <ScrollView contentContainerStyle={tw`p-4 flex-grow`}>
+          <Text style={tw`text-lg font-bold text-gray-800 mb-4`}>Propiedades</Text>
+          
+          {selectedId ? (
+            <View style={tw`gap-4`}>
             <View>
               <Text style={tw`text-xs text-gray-500 font-bold uppercase mb-1`}>
                 {elements.find(e => e.id === selectedId)?.type === 'reference' ? 'Punto de Referencia' : 'Etiqueta / Nombre'}
@@ -1090,7 +1123,7 @@ export default function Croquis() {
                       onPress={() => updateSelectedProperty('streetType', type)}
                       style={tw`px-2 py-1 rounded border ${
                         elements.find(e => e.id === selectedId)?.data.streetType === type 
-                          ? 'bg-blue-100 border-blue-500' 
+                          ? 'bg-[#dcf0fa] border-sky-500' 
                           : 'bg-gray-50 border-gray-200'
                       }`}
                     >
@@ -1146,18 +1179,45 @@ export default function Croquis() {
           </Text>
         )}
 
-        <View style={tw`mt-auto`}>
-          <TouchableOpacity 
-            onPress={saveCroquis}
-            disabled={loading}
-            style={tw`bg-green-600 py-3 rounded-lg flex-row items-center justify-center shadow-sm ${loading ? 'opacity-50' : ''}`}
-          >
-            <Save size={18} color="white" style={tw`mr-2`} />
-            <Text style={tw`text-white font-bold`}>{loading ? "Guardando..." : "Guardar Croquis"}</Text>
-          </TouchableOpacity>
+          <View style={tw`mt-auto pt-4`}>
+            <TouchableOpacity 
+              onPress={saveCroquis}
+              disabled={loading}
+              style={tw`bg-green-600 py-3 rounded-lg flex-row items-center justify-center shadow-sm ${loading ? 'opacity-50' : ''}`}
+            >
+              <Save size={18} color="white" style={tw`mr-2`} />
+              <Text style={tw`text-white font-bold`}>{loading ? "Guardando..." : "Guardar Croquis"}</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+      </View>
+      {/* Confirm Dialog */}
+      {confirmDialog.visible && (
+        <View style={[tw`absolute inset-0 bg-black/50 z-50 items-center justify-center`, { position: 'absolute' as any }]}>
+          <View style={tw`bg-white p-6 rounded-xl w-80 shadow-xl`}>
+            <Text style={tw`text-lg font-bold text-gray-800 mb-2`}>{confirmDialog.title}</Text>
+            <Text style={tw`text-sm text-gray-600 mb-6`}>{confirmDialog.message}</Text>
+            <View style={tw`flex-row justify-end gap-3`}>
+              <TouchableOpacity
+                onPress={() => setConfirmDialog({ ...confirmDialog, visible: false })}
+                style={tw`px-4 py-2 rounded-lg bg-gray-100`}
+              >
+                <Text style={tw`text-gray-700 font-medium`}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog({ ...confirmDialog, visible: false });
+                }}
+                style={tw`px-4 py-2 rounded-lg bg-red-600`}
+              >
+                <Text style={tw`text-white font-medium`}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </View>
-      </View>
+      )}
     </View>
   );
 }
