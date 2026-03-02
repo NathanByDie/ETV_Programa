@@ -110,9 +110,26 @@ export default function Asignacion() {
           <head>
             <title>Imprimir Asignación</title>
             <style>
+              body {
+                margin: 0;
+                padding: 0;
+                background-color: #525659;
+                display: flex;
+                justify-content: center;
+              }
               @media print {
                 @page { margin: 0; size: legal portrait; }
-                body { margin: 1cm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                body { margin: 0; padding: 0; background-color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; display: block; }
+                #pdf-content { 
+                  width: 215.9mm !important; 
+                  height: 355.6mm !important;
+                  padding: 10mm !important; 
+                  margin: 0 auto !important;
+                  box-sizing: border-box !important;
+                  box-shadow: none !important;
+                  display: flex !important;
+                  flex-direction: column !important;
+                }
               }
             </style>
           </head>
@@ -475,148 +492,150 @@ export default function Asignacion() {
           });
 
           const htmlContent = `
-            <div id="pdf-content" style="padding: 15mm; width: 215.9mm; min-height: 355.6mm; box-sizing: border-box; background: white; font-family: 'Arial', sans-serif; font-size: 14px; line-height: 1.4; display: flex; flex-direction: column; position: relative; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+            <div id="pdf-content" style="width: 215.9mm; min-height: 355.6mm; margin: 20px auto; padding: 15mm; box-sizing: border-box; background: white; font-family: 'Arial', sans-serif; font-size: 16px; line-height: 1.4; display: flex; flex-direction: column; position: relative; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: 0 0 10px rgba(0,0,0,0.5);">
               <div class="header" style="text-align: center; margin-bottom: 20px; position: relative;">
                 <!-- Logo Izquierdo -->
                 <img src="https://www.minsa.gob.ni/sites/default/files/Logo-01.png" style="position: absolute; left: 0; top: 0; width: 170px; height: 80px; object-fit: contain;" />
                 <!-- Logo Derecho -->
                 <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTDUPykT7GOjsNSvJL_ePAoTw3WEihUfGo80A&s" style="position: absolute; right: 0; top: 0; width: 190px; height: 70px; object-fit: contain;" />
                 
-                <h3 style="margin: 4px 0; font-size: 18px; color: #000;">MINISTERIO DE SALUD</h3>
-                <h3 style="margin: 4px 0; font-size: 18px; color: #000;">HOSPITAL PRIMARIO DE CAMOAPA</h3>
-                <h4 style="margin: 4px 0; font-size: 16px; color: #000;">PROGRAMA DE E.T.V</h4>
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-top: 15px; color: #000;">
+                <h3 style="margin: 4px 0; font-size: 20px; color: #000;">MINISTERIO DE SALUD</h3>
+                <h3 style="margin: 4px 0; font-size: 20px; color: #000;">HOSPITAL PRIMARIO DE CAMOAPA</h3>
+                <h4 style="margin: 4px 0; font-size: 18px; color: #000;">PROGRAMA DE E.T.V</h4>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; margin-top: 15px; color: #000;">
                   <span>Consolidado Diario</span>
                   <span>Fecha: ${date}</span>
                 </div>
               </div>
               
-              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #000;">
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1pt solid black;">
                 <tr>
-                  <td colspan="6" style="background-color: #93c5fd !important; color: #000; font-weight: bold; text-align: center; font-size: 16px; padding: 8px; border: 1px solid #000;">PROGRAMA E.T.V CAMOAPA-BOACO</td>
+                  <td colspan="6" style="background-color: #93c5fd !important; color: black; font-weight: bold; text-align: center; font-size: 18px; padding: 6px; border: 1pt solid black;">PROGRAMA E.T.V CAMOAPA-BOACO</td>
                 </tr>
                 <tr>
-                  <td colspan="6" style="background-color: #93c5fd !important; color: #000; font-weight: bold; text-align: center; font-size: 16px; padding: 8px; border: 1px solid #000;">RELACION POR MANZANA</td>
+                  <td colspan="6" style="background-color: #93c5fd !important; color: black; font-weight: bold; text-align: center; font-size: 18px; padding: 6px; border: 1pt solid black;">RELACION POR MANZANA</td>
                 </tr>
                 <tr>
-                  <td colspan="6" style="background-color: #93c5fd !important; color: #000; font-weight: bold; text-align: center; font-size: 16px; padding: 8px; border: 1px solid #000;">BARRIO: ${lugarNombre.toUpperCase()}</td>
+                  <td colspan="6" style="background-color: #93c5fd !important; color: black; font-weight: bold; text-align: center; font-size: 18px; padding: 6px; border: 1pt solid black;">BARRIO: ${lugarNombre.toUpperCase()}</td>
                 </tr>
                 <tr>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;"></th>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;">Manz<br>No</th>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;">vivienda<br>Existentes</th>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;">No<br>Habitantes</th>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;">Casas<br>Nuevas</th>
-                  <th style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; font-weight: bold; text-align: center; color: #000;">Punto de Referencia</th>
+                  <th style="border: 1pt solid black; padding: 4px 6px; font-size: 16px; font-weight: bold; text-align: center; color: black;"></th>
+                  <th style="border: 1pt solid black; padding: 4px 6px; font-size: 16px; font-weight: bold; text-align: center; color: black;">Manz<br>No</th>
+                  <th style="border: 1pt solid black; padding: 4px 6px; font-size: 16px; font-weight: bold; text-align: center; color: black;">vivienda<br>Existentes</th>
+                  <th style="border: 1pt solid black; padding: 4px 6px; font-size: 16px; font-weight: bold; text-align: center; color: black;">No<br>Habitantes</th>
+                  <th style="border: 1pt solid black; padding: 4px 6px; font-size: 16px; font-weight: bold; text-align: center; color: black;">Casas<br>Nuevas</th>
+                  <th style="border: 1pt solid black; padding: 4px 6px; font-size: 16px; font-weight: bold; text-align: center; color: black;">Punto de Referencia</th>
                 </tr>
-                ${tableRows.replace(/font-size: 12px;/g, 'font-size: 14px; color: #000;')}
-                <tr style="background-color: #fbbf24 !important; font-weight: bold; color: #000;">
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px;">TOTAL</td>
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; text-align: center;">${selectedManzanasData.length}</td>
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; text-align: center;">${totalViviendas || ''}</td>
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px; text-align: center;">${totalHabitantes || ''}</td>
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px;"></td>
-                  <td style="border: 1px solid #000; padding: 6px 8px; font-size: 14px;"></td>
+                ${tableRows.replace(/border: 1px solid #000;/g, 'border: 1pt solid black;').replace(/font-size: 12px;/g, 'font-size: 16px; color: black;').replace(/padding: 6px 8px;/g, 'padding: 4px 6px;')}
+                <tr style="background-color: #fbbf24 !important; font-weight: bold; color: black;">
+                  <td style="border: 1pt solid black; padding: 4px 6px; font-size: 16px;">TOTAL</td>
+                  <td style="border: 1pt solid black; padding: 4px 6px; font-size: 16px; text-align: center;">${selectedManzanasData.length}</td>
+                  <td style="border: 1pt solid black; padding: 4px 6px; font-size: 16px; text-align: center;">${totalViviendas || ''}</td>
+                  <td style="border: 1pt solid black; padding: 4px 6px; font-size: 16px; text-align: center;">${totalHabitantes || ''}</td>
+                  <td style="border: 1pt solid black; padding: 4px 6px; font-size: 16px;"></td>
+                  <td style="border: 1pt solid black; padding: 4px 6px; font-size: 16px;"></td>
                 </tr>
               </table>
 
               ${mapImage ? `
-              <div style="border: 2px solid #000; padding: 4px; margin-bottom: 20px; text-align: center; height: 160px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                <img src="${mapImage}" style="max-width: 100%; max-height: 150px; object-fit: contain;" />
+              <div style="border: 1pt solid black; padding: 2px; margin-bottom: 15px; text-align: center; min-height: 160px; flex-grow: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                <img src="${mapImage}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
               </div>
-              ` : '<div style="border: 2px solid #000; padding: 4px; margin-bottom: 20px; text-align: center; height: 160px; display: flex; align-items: center; justify-content: center;"><p>Sin mapa</p></div>'}
+              ` : '<div style="border: 1pt solid black; padding: 2px; margin-bottom: 15px; text-align: center; min-height: 160px; flex-grow: 1; display: flex; align-items: center; justify-content: center;"><p>Sin mapa</p></div>'}
 
-              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; border: 1px solid #000;">
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px; border: 1pt solid black;">
                 <tr>
-                  <th colspan="2" style="border: 1px solid #000; padding: 6px 8px; background-color: #f1f5f9 !important; text-align: center; color: #000;">ACTIVIDAD DE FUMIGACION</th>
-                  <th colspan="2" style="border: 1px solid #000; padding: 6px 8px; background-color: #f1f5f9 !important; text-align: center; color: #000;">ACTIVIDAD DE APLICACION</th>
-                  <th colspan="2" style="border: 1px solid #000; padding: 6px 8px; background-color: #f1f5f9 !important; text-align: center; color: #000;">DEPOSITOS</th>
+                  <th colspan="2" style="border: 1pt solid black; padding: 4px 6px; background-color: #f1f5f9 !important; text-align: center; color: black;">ACTIVIDAD DE FUMIGACION</th>
+                  <th colspan="2" style="border: 1pt solid black; padding: 4px 6px; background-color: #f1f5f9 !important; text-align: center; color: black;">ACTIVIDAD DE APLICACION</th>
+                  <th colspan="2" style="border: 1pt solid black; padding: 4px 6px; background-color: #f1f5f9 !important; text-align: center; color: black;">DEPOSITOS</th>
                 </tr>
                 <tr>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Fumigadas</td><td style="border: 1px solid #000; width: 40px;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Inspeccionadas</td><td style="border: 1px solid #000; width: 40px;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Depósitos Eliminados</td><td style="border: 1px solid #000; width: 40px;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Viviendas Fumigadas</td><td style="border: 1pt solid black; width: 40px;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Viviendas Inspeccionadas</td><td style="border: 1pt solid black; width: 40px;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Depósitos Eliminados</td><td style="border: 1pt solid black; width: 40px;"></td>
                 </tr>
                 <tr>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Cerradas</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Tratadas</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Depósitos Cepillados</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Viviendas Cerradas</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Viviendas Tratadas</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Depósitos Cepillados</td><td style="border: 1pt solid black;"></td>
                 </tr>
                 <tr>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Renuentes</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Positivas</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Depósitos Tratados</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Viviendas Renuentes</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Viviendas Positivas</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Depósitos Tratados</td><td style="border: 1pt solid black;"></td>
                 </tr>
                 <tr>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Deshabitada</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Cerradas</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Depósitos Inspeccionados</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Viviendas Deshabitada</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Viviendas Cerradas</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Depósitos Inspeccionados</td><td style="border: 1pt solid black;"></td>
                 </tr>
                 <tr>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Manzanas Fumigadas</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Desabitadas</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Depósitos Positivos</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Manzanas Fumigadas</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Viviendas Desabitadas</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Depósitos Positivos</td><td style="border: 1pt solid black;"></td>
                 </tr>
                 <tr>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Habitantes Protegidos</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Viviendas Renuentes</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Abate en Kg Utilizado</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Habitantes Protegidos</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Viviendas Renuentes</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Abate en Kg Utilizado</td><td style="border: 1pt solid black;"></td>
                 </tr>
                 <tr>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Puntos Claves Fumigados</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Total de Viviendas Visitadas</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">&nbsp;</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Puntos Claves Fumigados</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Total de Viviendas Visitadas</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">&nbsp;</td><td style="border: 1pt solid black;"></td>
                 </tr>
                 <tr>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Cipermetrina Gastada</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Puntos clave Tratados</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">&nbsp;</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Cipermetrina Gastada</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">Puntos clave Tratados</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">&nbsp;</td><td style="border: 1pt solid black;"></td>
                 </tr>
                 <tr>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">&nbsp;</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">&nbsp;</td><td style="border: 1px solid #000;"></td>
-                  <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">&nbsp;</td><td style="border: 1px solid #000;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">&nbsp;</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">&nbsp;</td><td style="border: 1pt solid black;"></td>
+                  <td style="border: 1pt solid black; padding: 3px 6px; font-weight: bold; color: black;">&nbsp;</td><td style="border: 1pt solid black;"></td>
                 </tr>
               </table>
 
-              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Nombres y Apellidos del Caso Sospechoso</span>
-                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              <div style="margin-bottom: 8px; display: flex; align-items: flex-end;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 16px; color: black;">Nombres y Apellidos del Caso Sospechoso</span>
+                <div style="flex: 1; border-bottom: 1pt solid black; height: 16px;"></div>
               </div>
-              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Jefe de Familia del Caso Sospechoso</span>
-                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              <div style="margin-bottom: 8px; display: flex; align-items: flex-end;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 16px; color: black;">Jefe de Familia del Caso Sospechoso</span>
+                <div style="flex: 1; border-bottom: 1pt solid black; height: 16px;"></div>
               </div>
-              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Fecha de Nacimiento</span>
-                <div style="flex: 0.5; border-bottom: 1px solid #000; height: 16px;"></div>
-                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 14px;">Edad</span>
-                <div style="flex: 0.2; border-bottom: 1px solid #000; height: 16px;"></div>
-                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 14px;">Sexo</span>
-                <div style="flex: 0.2; border-bottom: 1px solid #000; height: 16px;"></div>
-                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 14px;">Barrio O Comunidad</span>
-                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              <div style="margin-bottom: 8px; display: flex; align-items: flex-end;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 16px; color: black;">Fecha de Nacimiento</span>
+                <div style="flex: 0.5; border-bottom: 1pt solid black; height: 16px;"></div>
+                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 16px; color: black;">Edad</span>
+                <div style="flex: 0.2; border-bottom: 1pt solid black; height: 16px;"></div>
+                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 16px; color: black;">Sexo</span>
+                <div style="flex: 0.2; border-bottom: 1pt solid black; height: 16px;"></div>
+                <span style="font-weight: bold; margin-right: 8px; margin-left: 10px; white-space: nowrap; font-size: 16px; color: black;">Barrio O Comunidad</span>
+                <div style="flex: 1; border-bottom: 1pt solid black; height: 16px;"></div>
               </div>
-              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Dirección</span>
-                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              <div style="margin-bottom: 8px; display: flex; align-items: flex-end;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 16px; color: black;">Dirección</span>
+                <div style="flex: 1; border-bottom: 1pt solid black; height: 16px;"></div>
               </div>
-              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Observacion</span>
-                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              <div style="margin-bottom: 8px; display: flex; align-items: flex-end;">
+                <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 16px; color: black;">Observacion</span>
+                <div style="flex: 1; border-bottom: 1pt solid black; height: 16px;"></div>
               </div>
-              <div style="margin-bottom: 12px; display: flex; align-items: flex-end;">
-                <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+              <div style="margin-bottom: 8px; display: flex; align-items: flex-end;">
+                <div style="flex: 1; border-bottom: 1pt solid black; height: 16px;"></div>
               </div>
 
-              <div style="margin-top: auto; padding-top: 20px;">
+              <div style="margin-top: 20px; padding-top: 10px; page-break-inside: avoid;">
                 <div style="display: flex; align-items: flex-end;">
-                  <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 14px;">Nombre / Apellido y Firma de Recursos Participantes: </span>
-                  <div style="flex: 1; border-bottom: 1px solid #000; height: 16px;"></div>
+                  <span style="font-weight: bold; margin-right: 8px; white-space: nowrap; font-size: 16px; color: black;">Nombre / Apellido y Firma de Recursos Participantes: </span>
+                  <div style="flex: 1; border-bottom: 1pt solid black; height: 16px;"></div>
                 </div>
                 
                 <!-- Logo Inferior -->
-                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS27CGlOr9nf1ODCnqoeAYeUFqXP24AgyL9rw&s" style="position: absolute; bottom: 0; left: 1; width: 150px; height: 60px; object-fit: contain;" />
+                <div style="margin-top: 5px;">
+                  <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS27CGlOr9nf1ODCnqoeAYeUFqXP24AgyL9rw&s" style="width: 150px; height: 60px; object-fit: contain;" />
+                </div>
               </div>
             </div>
           `;
