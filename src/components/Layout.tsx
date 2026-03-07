@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, Image } from "react-native";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, ClipboardList, Map, History } from "lucide-react";
+import { Home, Users, ClipboardList, Map, History, Target } from "lucide-react";
 import tw from "twrnc";
 import { useUnsavedChanges } from "../contexts/UnsavedChangesContext";
 
@@ -14,6 +14,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { path: "/", icon: Home, label: "Inicio" },
     { path: "/asignar", icon: ClipboardList, label: "Asignar" },
+    { path: "/foco", icon: Target, label: "Foco" },
     { path: "/historial", icon: History, label: "Historial" },
     { path: "/croquis", icon: Map, label: "Croquis" },
   ];
@@ -29,9 +30,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-gray-50`}>
+    <View style={tw`flex-1 bg-gray-50 overflow-hidden flex-col`}>
       {/* Header */}
-      <View style={tw`bg-[#dcf0fa] pt-12 pb-4 px-4 z-20 flex-row items-center justify-between`}>
+      <View style={tw`bg-[#dcf0fa] pt-12 pb-4 px-4 z-20 flex-row items-center justify-between shrink-0`}>
         <View style={tw`bg- rounded p-1`}>
           <Image 
             source={{ uri: 'https://www.minsa.gob.ni/sites/default/files/Logo-01.png' }} 
@@ -43,7 +44,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </View>
       
       {/* Top Navigation - Fixed under header */}
-      <View style={tw`bg-white border-b border-gray-200 flex-row justify-around items-center h-16 shadow-sm z-20`}>
+      <View style={tw`bg-white border-b border-gray-200 flex-row justify-around items-center h-16 shadow-sm z-20 shrink-0`}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -65,18 +66,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </View>
 
       {/* Main Content Area */}
-      {location.pathname === '/croquis' ? (
-        <View style={tw`flex-1`}>
-          {children}
-        </View>
-      ) : (
-        <ScrollView 
-          style={tw`flex-1`}
-          contentContainerStyle={tw`p-4 pb-8`}
-        >
-          {children}
-        </ScrollView>
-      )}
+      <View style={tw`flex-1 overflow-hidden`}>
+        {children}
+      </View>
 
       {/* Unsaved Changes Dialog */}
       {pendingNavigation && (
@@ -105,6 +97,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </View>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

@@ -1,8 +1,11 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, setLogLevel } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
+
+// Suppress benign warnings about clock skew
+setLogLevel('error');
 
 const firebaseConfig = {
   apiKey: "AIzaSyDmlF4p6fHQ3OCuHD7AikCUvFF_bebiDk4",

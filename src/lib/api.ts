@@ -88,7 +88,7 @@ export const api = {
     try {
       const docRef = await addDoc(collection(db, "asignaciones"), {
         ...asignacion,
-        fecha: Timestamp.now()
+        fecha: new Date().toISOString()
       });
       return { id: docRef.id, ...asignacion };
     } catch (e) {

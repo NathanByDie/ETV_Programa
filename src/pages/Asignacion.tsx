@@ -4,7 +4,7 @@ import { Picker } from "@react-native-picker/picker";
 import { Stage, Layer, Line, Rect, Text as KonvaText, Group, Circle } from "react-konva";
 import { format, subDays, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, CheckCircle, Map as MapIcon, Target } from "lucide-react";
+import { AlertCircle, CheckCircle, Map as MapIcon } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
 import html2pdf from "html2pdf.js";
@@ -89,9 +89,6 @@ export default function Asignacion() {
   const [availableManzanas, setAvailableManzanas] = useState<CroquisElement[]>([]);
   const [selectedManzanas, setSelectedManzanas] = useState<string[]>([]);
 
-  const [modoFoco, setModoFoco] = useState(false);
-  const [focoPoint, setFocoPoint] = useState<{x: number, y: number} | null>(null);
-
   const [loading, setLoading] = useState(false);
   const [validationMsg, setValidationMsg] = useState<{type: 'error' | 'success', text: string} | null>(null);
 
@@ -103,9 +100,19 @@ export default function Asignacion() {
   const handlePrint = () => {
     if (!previewHtml) return;
     
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(`
         <html>
           <head>
             <title>Imprimir Asignación</title>
@@ -113,9 +120,7 @@ export default function Asignacion() {
               body {
                 margin: 0;
                 padding: 0;
-                background-color: #525659;
-                display: flex;
-                justify-content: center;
+                background-color: white;
               }
               @media print {
                 @page { margin: 0; size: legal portrait; }
@@ -135,16 +140,18 @@ export default function Asignacion() {
           </head>
           <body>
             ${previewHtml}
-            <script>
-              window.onload = () => {
-                window.print();
-                setTimeout(() => window.close(), 500);
-              };
-            </script>
           </body>
         </html>
       `);
-      printWindow.document.close();
+      doc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      }, 1000);
     }
   };
 
@@ -229,9 +236,6 @@ export default function Asignacion() {
 
   // Update manzanas when barrio changes
   useEffect(() => {
-    setFocoPoint(null);
-    setModoFoco(false);
-
     if (selectedBarrioId && selectedCroquisId) {
       const croquis = allCroquis.find(c => c.id === selectedCroquisId);
       const barrio = availableBarrios.find(b => b.id === selectedBarrioId);
@@ -293,75 +297,6 @@ export default function Asignacion() {
     setSelectedManzanas(prev => 
       prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
     );
-  };
-
-  const handleMapClick = (e: any) => {
-    if (!modoFoco) return;
-    const stage = e.target.getStage();
-    const pointerPosition = stage.getPointerPosition();
-    if (!pointerPosition) return;
-    
-    const transform = stage.getAbsoluteTransform().copy();
-    transform.invert();
-    const pos = transform.point(pointerPosition);
-    
-    setFocoPoint(pos);
-    
-    // 500m radius in our scale (10px = 1m)
-    const radius = 5000; 
-    
-    // Auto-select manzanas inside the 500m radius
-    const newSelected: string[] = [];
-    
-    // When in foco mode, we want to check ALL manzanas in the croquis, not just the current barrio
-    const croquis = allCroquis.find(c => c.id === selectedCroquisId);
-    if (!croquis) return;
-    
-    const allManzanasInCroquis = croquis.elements.filter(el => el.type === 'manzana');
-    const manzanasInRadius: any[] = [];
-    
-    allManzanasInCroquis.forEach(m => {
-      if (m.points && m.points.length >= 2) {
-        let inside = false;
-        // Check if any point of the manzana is within the 500m radius
-        for(let i=0; i<m.points.length; i+=2) {
-           const dx = m.points[i] - pos.x;
-           const dy = m.points[i+1] - pos.y;
-           if (Math.sqrt(dx*dx + dy*dy) <= radius) {
-             inside = true;
-             break;
-           }
-        }
-        if (inside) {
-          manzanasInRadius.push(m);
-          newSelected.push(m.data.blockNumber || m.id.split('-').pop()!);
-        }
-      }
-    });
-    
-    // Update available manzanas to include all manzanas in the radius
-    setAvailableManzanas(manzanasInRadius);
-    setSelectedManzanas(newSelected);
-    
-    // Adjust map scale to fit the 500m radius
-    const minX = pos.x - radius;
-    const maxX = pos.x + radius;
-    const minY = pos.y - radius;
-    const maxY = pos.y + radius;
-    
-    const padding = 40;
-    const width = maxX - minX;
-    const height = maxY - minY;
-    
-    const scaleX = 300 / (width + padding * 2);
-    const scaleY = 180 / (height + padding * 2);
-    const scale = Math.min(scaleX, scaleY);
-    
-    setPreviewScale(scale);
-    setPreviewPos({
-      x: -(minX - padding) * scale,
-      y: -(minY - padding) * scale
-    });
   };
 
   const checkAvailability = async () => {
@@ -430,6 +365,15 @@ export default function Asignacion() {
     }
 
     try {
+      const allAsignaciones = await api.getAsignaciones();
+      const today = new Date().toISOString().split('T')[0];
+      const todayAsignaciones = allAsignaciones.filter((a: any) => {
+        if (!a.fecha) return false;
+        const dateStr = typeof a.fecha === 'string' ? a.fecha : new Date(a.fecha.seconds * 1000).toISOString();
+        return dateStr.split('T')[0] === today;
+      });
+      const trabajoNumero = todayAsignaciones.length + 1;
+
       await api.addAsignacion({
         tipo,
         lugarType,
@@ -438,7 +382,10 @@ export default function Asignacion() {
         brigadistaId: "N/A",
         brigadistaNombre: "N/A",
         fecha: new Date().toISOString(),
-        status: "pendiente"
+        status: "pendiente",
+        croquisId: selectedCroquisId,
+        barrioId: selectedBarrioId,
+        trabajoNumero
       });
       alert("Asignación creada exitosamente");
 
@@ -481,7 +428,7 @@ export default function Asignacion() {
 
             tableRows += `
               <tr>
-                ${index === 0 ? `<td rowspan="${selectedManzanasData.length}" style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; vertical-align: middle;">Trabajo No 1</td>` : ''}
+                ${index === 0 ? `<td rowspan="${selectedManzanasData.length}" style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; vertical-align: middle;">Trabajo No ${trabajoNumero}</td>` : ''}
                 <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center; font-weight: bold;">${label}</td>
                 <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${isNaN(viviendas) ? '' : viviendas}</td>
                 <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${isNaN(habitantes) ? '' : habitantes}</td>
@@ -653,8 +600,6 @@ export default function Asignacion() {
       setAvailableBarrios([]);
       setAvailableManzanas([]);
       setSelectedManzanas([]);
-      setFocoPoint(null);
-      setModoFoco(false);
       setValidationMsg(null);
     } catch (e) {
       console.warn("Error saving assignment:", e);
@@ -687,10 +632,15 @@ export default function Asignacion() {
         
         <View style={tw`flex-1 bg-white shadow-lg rounded-lg overflow-hidden`}>
           {Platform.OS === 'web' ? (
-            <div 
-              style={{ width: '100%', height: '100%', overflow: 'auto', padding: '20px' }}
-              dangerouslySetInnerHTML={{ __html: previewHtml }}
-            />
+            <View 
+              style={{ width: '100%', height: '100%', overflow: 'hidden', padding: 20 }}
+            >
+              <iframe
+                srcDoc={previewHtml}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title="Vista Previa PDF"
+              />
+            </View>
           ) : (
             <ScrollView style={tw`flex-1 p-4`}>
               <Text>La vista previa solo está disponible en la versión web.</Text>
@@ -702,12 +652,13 @@ export default function Asignacion() {
   }
 
   return (
-    <View style={tw`flex-1`}>
-      <Text style={tw`text-2xl font-bold text-gray-800 mb-6`}>Nueva Asignación</Text>
+    <View style={tw`flex-1 p-4`}>
+      <Text style={tw`text-2xl font-bold text-gray-800 mb-6 shrink-0`}>Nueva Asignación</Text>
 
-      <View style={tw`bg-white p-6 rounded-xl shadow-sm border border-gray-100`}>
-        
-        {/* Tipo de Trabajo */}
+      <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-8`}>
+        <View style={tw`bg-white p-6 rounded-xl shadow-sm border border-gray-100`}>
+          
+          {/* Tipo de Trabajo */}
         <View style={tw`mb-4`}>
           <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Tipo de Trabajo</Text>
           <View style={tw`flex-row gap-3`}>
@@ -732,7 +683,7 @@ export default function Asignacion() {
               }`}
             >
               <Text style={tw`font-medium ${tipo === "abatizacion" ? "text-green-700" : "text-gray-600"}`}>
-                Abatización
+                Aplicación
               </Text>
             </TouchableOpacity>
           </View>
@@ -793,27 +744,7 @@ export default function Asignacion() {
                   </Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity 
-                onPress={() => {
-                  setModoFoco(!modoFoco);
-                  if (modoFoco) {
-                    setFocoPoint(null);
-                  }
-                }}
-                style={tw`flex-row items-center px-3 py-1.5 rounded-full border ${modoFoco ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}
-              >
-                <Target size={14} color={modoFoco ? "#ef4444" : "#6b7280"} style={tw`mr-1`} />
-                <Text style={tw`text-xs font-medium ${modoFoco ? 'text-red-600' : 'text-gray-600'}`}>
-                  Operativo Foco (500m)
-                </Text>
-              </TouchableOpacity>
             </View>
-
-            {modoFoco && !focoPoint && (
-              <Text style={tw`text-xs text-red-500 mb-2 italic`}>
-                Toca en el mapa para marcar la casa con el caso positivo.
-              </Text>
-            )}
 
             <View style={tw`flex-row flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200`}>
               {availableManzanas.map((m) => {
@@ -867,46 +798,29 @@ export default function Asignacion() {
                   scaleY={previewScale}
                   x={previewPos.x}
                   y={previewPos.y}
-                  onMouseDown={handleMapClick}
-                  onTouchStart={handleMapClick}
                   ref={previewStageRef}
                 >
                   <Layer>
-                    {/* Draw All Barrios in Croquis if in Foco Mode, otherwise just selected */}
-                    {modoFoco ? (
-                      allCroquis.find(c => c.id === selectedCroquisId)?.elements
-                        .filter(el => el.type === 'barrio' && el.points)
-                        .map(b => (
-                          <Line
-                            key={b.id}
-                            points={b.points!}
-                            closed={true}
-                            fill={b.id === selectedBarrioId ? "rgba(220, 240, 250, 0.5)" : "transparent"}
-                            stroke="#0284c7"
-                            strokeWidth={2 / previewScale}
-                            dash={b.id !== selectedBarrioId ? [10 / previewScale, 10 / previewScale] : undefined}
-                          />
-                        ))
-                    ) : (
-                      availableBarrios.find(b => b.id === selectedBarrioId)?.points && (
-                        <Line
-                          points={availableBarrios.find(b => b.id === selectedBarrioId)!.points!}
-                          closed={true}
-                          fill="rgba(220, 240, 250, 0.5)"
-                          stroke="#0284c7"
-                          strokeWidth={2 / previewScale}
-                        />
-                      )
+                    {/* Draw Selected Barrio */}
+                    {availableBarrios.find(b => b.id === selectedBarrioId)?.points && (
+                      <Line
+                        points={availableBarrios.find(b => b.id === selectedBarrioId)!.points!}
+                        closed={true}
+                        fill="rgba(220, 240, 250, 0.5)"
+                        stroke="#0284c7"
+                        strokeWidth={2 / previewScale}
+                      />
                     )}
                     {/* Draw Manzanas */}
                     {availableManzanas.map(m => {
                       const centroid = getCentroid(m.points!);
+                      const isSelected = selectedManzanas.includes(m.data.blockNumber || m.id.split('-').pop()!);
                       return (
                         <Group key={m.id}>
                           <Line
                             points={m.points!}
                             closed={true}
-                            fill={selectedManzanas.includes(m.data.blockNumber || m.id.split('-').pop()!) ? "rgba(220, 240, 250, 0.8)" : "rgba(209, 213, 219, 0.5)"}
+                            fill={isSelected ? "#1e3a8a" : "rgba(209, 213, 219, 0.5)"}
                             stroke="#1f2937"
                             strokeWidth={2 / previewScale}
                           />
@@ -915,37 +829,13 @@ export default function Asignacion() {
                             y={centroid.y}
                             text={m.data.blockNumber}
                             fontSize={12 / previewScale}
-                            fill="#000"
+                            fill={isSelected ? "#ffffff" : "#000000"}
                             offsetX={(6 / previewScale)} // Approximate centering
                             offsetY={(6 / previewScale)}
                           />
                         </Group>
                       );
                     })}
-
-                    {/* Draw Foco Radius (500m) */}
-                    {focoPoint && (
-                      <Circle
-                        x={focoPoint.x}
-                        y={focoPoint.y}
-                        radius={5000}
-                        fill="rgba(239, 68, 68, 0.15)"
-                        stroke="#ef4444"
-                        strokeWidth={2 / previewScale}
-                        dash={[10 / previewScale, 10 / previewScale]}
-                      />
-                    )}
-                    {/* Draw Foco Point (Center) */}
-                    {focoPoint && (
-                      <Circle
-                        x={focoPoint.x}
-                        y={focoPoint.y}
-                        radius={12 / previewScale}
-                        fill="#ef4444"
-                        stroke="#ffffff"
-                        strokeWidth={3 / previewScale}
-                      />
-                    )}
                   </Layer>
                 </Stage>
               </View>
@@ -978,7 +868,8 @@ export default function Asignacion() {
           </Text>
         </TouchableOpacity>
 
-      </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }

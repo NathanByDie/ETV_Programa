@@ -10,6 +10,7 @@ import { auth } from "./lib/firebase";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Asignacion from "./pages/Asignacion";
+import OperativoFoco from "./pages/OperativoFoco";
 import Croquis from "./pages/Croquis";
 import Historial from "./pages/Historial";
 import { View, Text, TouchableOpacity } from "react-native";
@@ -32,25 +33,28 @@ export default function App() {
 
   return (
     <UnsavedChangesProvider>
-      <Router>
-        <StatusBar style="auto" />
-        {authError && (
-          <View style={tw`bg-orange-500 p-2 flex-row justify-between items-center`}>
-            <Text style={tw`text-white text-center text-xs font-bold flex-1`}>{authError}</Text>
-            <TouchableOpacity onPress={() => setAuthError(null)} style={tw`px-2`}>
-               <Text style={tw`text-white font-bold`}>X</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/asignar" element={<Asignacion />} />
-            <Route path="/croquis" element={<Croquis />} />
-            <Route path="/historial" element={<Historial />} />
-          </Routes>
-        </Layout>
-      </Router>
+      <View style={[tw`flex-1`, { height: '100%' }]}>
+        <Router>
+          <StatusBar style="auto" />
+          {authError && (
+            <View style={tw`bg-orange-500 p-2 flex-row justify-between items-center shrink-0`}>
+              <Text style={tw`text-white text-center text-xs font-bold flex-1`}>{authError}</Text>
+              <TouchableOpacity onPress={() => setAuthError(null)} style={tw`px-2`}>
+                 <Text style={tw`text-white font-bold`}>X</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/asignar" element={<Asignacion />} />
+              <Route path="/foco" element={<OperativoFoco />} />
+              <Route path="/croquis" element={<Croquis />} />
+              <Route path="/historial" element={<Historial />} />
+            </Routes>
+          </Layout>
+        </Router>
+      </View>
     </UnsavedChangesProvider>
   );
 }

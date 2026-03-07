@@ -513,7 +513,46 @@ export default function Croquis() {
     }
 
     if (newElement) {
-      setElements(prev => [...prev, newElement!]);
+      setElements(prev => {
+        const updated = [...prev, newElement!];
+        
+        // If we just added a barrio, renumber manzanas automatically
+        if (tool === 'barrio') {
+          const barrios = updated.filter(e => e.type === 'barrio');
+          const manzanas = updated.filter(e => e.type === 'manzana');
+          const numberedManzanaIds = new Set();
+
+          barrios.forEach(barrio => {
+            if (!barrio.points) return;
+            const manzanasInThisBarrio = manzanas.filter(m => 
+              m.points && isPointInPolygon(m.points[0], m.points[1], barrio.points!)
+            );
+            manzanasInThisBarrio.forEach((m, index) => {
+              const elIndex = updated.findIndex(e => e.id === m.id);
+              if (elIndex !== -1) {
+                updated[elIndex] = {
+                  ...updated[elIndex],
+                  data: { ...updated[elIndex].data, blockNumber: (index + 1).toString() }
+                };
+                numberedManzanaIds.add(m.id);
+              }
+            });
+          });
+
+          const remainingManzanas = manzanas.filter(m => !numberedManzanaIds.has(m.id));
+          remainingManzanas.forEach((m, index) => {
+            const elIndex = updated.findIndex(e => e.id === m.id);
+            if (elIndex !== -1) {
+              updated[elIndex] = {
+                ...updated[elIndex],
+                data: { ...updated[elIndex].data, blockNumber: (index + 1).toString() }
+              };
+            }
+          });
+        }
+        
+        return updated;
+      });
     }
     setCurrentPoints([]);
   };
@@ -630,14 +669,6 @@ export default function Croquis() {
         const manzanasInThisBarrio = manzanas.filter(m => 
           m.points && isPointInPolygon(m.points[0], m.points[1], barrio.points!)
         );
-
-        // Sort them by Y, then X to have a predictable numbering order (top-left to bottom-right)
-        manzanasInThisBarrio.sort((a, b) => {
-          if (Math.abs(a.points![1] - b.points![1]) > 50) {
-            return a.points![1] - b.points![1]; // Top to bottom
-          }
-          return a.points![0] - b.points![0]; // Left to right
-        });
 
         manzanasInThisBarrio.forEach((m, index) => {
           const elIndex = newElements.findIndex(e => e.id === m.id);
@@ -813,7 +844,7 @@ export default function Croquis() {
   }
 
   return (
-    <View style={tw`flex-1 flex-col h-full bg-gray-100`}>
+    <View style={tw`flex-1 flex-col bg-gray-100`}>
       {/* Editor Header */}
       <View style={tw`bg-white border-b border-gray-200 px-4 py-3 flex-row items-center justify-between shadow-sm z-20`}>
         <View style={tw`flex-row items-center`}>
@@ -850,9 +881,10 @@ export default function Croquis() {
         </TouchableOpacity>
       </View>
 
-      <View style={tw`flex-1 flex-row`}>
+      <View style={tw`flex-1 flex-row overflow-hidden`}>
         {/* Toolbar */}
-        <View style={tw`w-20 bg-white border-r border-gray-200 items-center py-4 gap-2 shadow-sm z-10`}>
+        <View style={tw`w-20 bg-white border-r border-gray-200 items-center py-4 gap-2 shadow-sm z-10 overflow-hidden`}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={tw`items-center gap-2 pb-4`}>
           {Tools.map((t) => (
             <TouchableOpacity
               key={t.id}
@@ -881,20 +913,22 @@ export default function Croquis() {
           <TouchableOpacity onPress={redo} disabled={historyStep >= history.length - 1} style={tw`p-2 opacity-${historyStep >= history.length - 1 ? '50' : '100'}`}>
             <Redo size={20} color="#4b5563" />
           </TouchableOpacity>
+          </ScrollView>
         </View>
 
         {/* Canvas Area */}
         <View 
-        style={tw`flex-1 relative overflow-hidden bg-gray-50`}
-        onLayout={onLayout}
-      >
-        <Stage
-          width={stageDimensions.width}
-          height={stageDimensions.height}
-          scaleX={stageScale}
-          scaleY={stageScale}
-          x={stagePos.x}
-          y={stagePos.y}
+          style={tw`flex-1 relative overflow-hidden bg-gray-50`}
+          onLayout={onLayout}
+        >
+          <View style={[tw`absolute inset-0`, { width: stageDimensions.width, height: stageDimensions.height }]}>
+            <Stage
+              width={stageDimensions.width}
+              height={stageDimensions.height}
+              scaleX={stageScale}
+              scaleY={stageScale}
+              x={stagePos.x}
+              y={stagePos.y}
           draggable={tool === 'pan'}
           onDragEnd={(e) => setStagePos(e.target.position())}
           onMouseDown={handleStageClick}
@@ -991,7 +1025,7 @@ export default function Croquis() {
                       fill={el.style?.fill}
                       strokeWidth={el.style?.strokeWidth}
                     />
-                    {el.type === 'manzana' && isManzanaInAnyBarrio(el) && el.data.blockNumber && (
+                    {el.type === 'manzana' && isManzanaInAnyBarrio(el) && !!el.data.blockNumber && (
                        <KonvaText
                         x={centroid.x}
                         y={centroid.y}
@@ -1004,7 +1038,7 @@ export default function Croquis() {
                         align="center"
                        />
                     )}
-                    {el.type === 'barrio' && el.data.label && (
+                    {el.type === 'barrio' && !!el.data.label && (
                        <KonvaText
                         x={centroid.x}
                         y={centroid.y}
@@ -1141,6 +1175,7 @@ export default function Croquis() {
             )}
           </Layer>
         </Stage>
+        </View>
 
         {/* Floating Action Buttons */}
         <View style={tw`absolute bottom-8 right-8 flex-row gap-4 items-end`}>
@@ -1165,8 +1200,8 @@ export default function Croquis() {
       </View>
 
       {/* Properties Panel */}
-      <View style={tw`w-72 bg-white border-l border-gray-200 shadow-sm z-10 flex-col`}>
-        <ScrollView contentContainerStyle={tw`p-4 flex-grow`}>
+      <View style={tw`w-72 bg-white border-l border-gray-200 shadow-sm z-10 flex-col overflow-hidden`}>
+        <ScrollView style={tw`flex-1`} contentContainerStyle={tw`p-4 flex-grow pb-8`}>
           <Text style={tw`text-lg font-bold text-gray-800 mb-4`}>Propiedades</Text>
           
           {selectedId ? (
