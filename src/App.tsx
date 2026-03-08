@@ -36,7 +36,7 @@ export default function App() {
       <View style={[tw`flex-1`, { height: '100%' }]}>
         <Router>
           <StatusBar style="auto" />
-          {authError && (
+          {!!authError && (
             <View style={tw`bg-orange-500 p-2 flex-row justify-between items-center shrink-0`}>
               <Text style={tw`text-white text-center text-xs font-bold flex-1`}>{authError}</Text>
               <TouchableOpacity onPress={() => setAuthError(null)} style={tw`px-2`}>

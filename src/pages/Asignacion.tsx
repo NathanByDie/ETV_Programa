@@ -709,7 +709,7 @@ export default function Asignacion() {
         </View>
 
         {/* Barrio Selection */}
-        {selectedCroquisId !== "" && (
+        {!!selectedCroquisId && (
           <View style={tw`mb-4`}>
             <Text style={tw`text-sm font-medium text-gray-700 mb-1`}>Seleccionar Barrio</Text>
             <View style={tw`border border-gray-300 rounded-lg bg-gray-50 overflow-hidden`}>
@@ -724,7 +724,7 @@ export default function Asignacion() {
         )}
 
         {/* Manzanas Preview & Selection */}
-        {selectedBarrioId !== "" && availableManzanas.length > 0 && (
+        {!!selectedBarrioId && !!availableManzanas.length && (
           <View style={tw`mb-6`}>
             <View style={tw`flex-row items-center justify-between mb-2`}>
               <View style={tw`flex-row items-center gap-2`}>
@@ -802,7 +802,7 @@ export default function Asignacion() {
                 >
                   <Layer>
                     {/* Draw Selected Barrio */}
-                    {availableBarrios.find(b => b.id === selectedBarrioId)?.points && (
+                    {!!availableBarrios.find(b => b.id === selectedBarrioId)?.points && (
                       <Line
                         points={availableBarrios.find(b => b.id === selectedBarrioId)!.points!}
                         closed={true}
@@ -844,7 +844,7 @@ export default function Asignacion() {
         )}
 
         {/* Validation Msg */}
-        {validationMsg && (
+        {!!validationMsg && (
           <View style={tw`p-3 rounded-lg flex-row items-start ${
             validationMsg.type === 'error' ? 'bg-red-50 border border-red-100' : 'bg-green-50 border border-green-100'
           }`}>

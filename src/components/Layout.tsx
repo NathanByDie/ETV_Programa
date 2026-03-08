@@ -71,7 +71,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </View>
 
       {/* Unsaved Changes Dialog */}
-      {pendingNavigation && (
+      {!!pendingNavigation && (
         <View style={[tw`absolute inset-0 bg-black/50 z-50 items-center justify-center`, { position: 'absolute' as any }]}>
           <View style={tw`bg-white p-6 rounded-xl w-80 shadow-xl`}>
             <Text style={tw`text-lg font-bold text-gray-800 mb-2`}>Cambios sin guardar</Text>

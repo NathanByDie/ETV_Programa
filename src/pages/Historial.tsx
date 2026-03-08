@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform } from "react-native";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Trash2, Search, Filter, MapPin, Calendar, Printer } from "lucide-react";
+import { Trash2, Search, Filter, MapPin, Calendar, Printer, User, Hash } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
 
@@ -15,6 +15,7 @@ interface Asignacion {
   manzanas: string[];
   fecha: string; // ISO string from API
   mapImage?: string;
+  trabajoNumero?: number;
 }
 
 export default function Historial() {
@@ -208,8 +209,6 @@ export default function Historial() {
   };
 
   const handlePrint = (item: Asignacion) => {
-    if (Platform.OS !== 'web') return;
-    
     const date = item.fecha ? format(new Date(item.fecha), "dd 'de' MMMM, yyyy", { locale: es }) : "N/A";
     
     // Find the croquis and barrio that match this assignment
@@ -525,7 +524,7 @@ export default function Historial() {
           />
         </View>
         
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`flex-row pb-1`}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={tw`flex-row pb-1`}>
           <TouchableOpacity
             onPress={() => setFilterType("todos")}
             style={tw`px-4 py-2 rounded-full mr-2 ${
@@ -601,9 +600,17 @@ export default function Historial() {
                       {item.manzanas?.length > 0 ? `${item.manzanas.length} manzanas` : "General"}
                     </Text>
                   </View>
+                  {!!item.trabajoNumero && (
+                    <View style={tw`flex-row items-center`}>
+                      <Hash size={14} color="#9ca3af" style={tw`mr-2`} />
+                      <Text style={tw`text-sm text-gray-600`}>
+                        Trabajo No {item.trabajoNumero}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
-                {item.manzanas?.length > 0 && (
+                {!!item.manzanas?.length && (
                   <View style={tw`bg-gray-50 p-2 rounded-lg mb-3`}>
                     <Text style={tw`text-xs text-gray-500 font-medium mb-1`}>Manzanas:</Text>
                     <View style={tw`flex-row flex-wrap gap-1`}>
@@ -613,6 +620,12 @@ export default function Historial() {
                         </View>
                       ))}
                     </View>
+                  </View>
+                )}
+
+                {!!item.mapImage && Platform.OS === 'web' && (
+                  <View style={tw`mb-3 h-32 rounded-lg overflow-hidden border border-gray-200 bg-gray-50`}>
+                    <img src={item.mapImage} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   </View>
                 )}
 
@@ -638,7 +651,7 @@ export default function Historial() {
       </ScrollView>
 
       {/* Delete Confirmation Modal */}
-      {asignacionToDelete && (
+      {!!asignacionToDelete && (
         <View style={tw`absolute inset-0 bg-black/50 flex items-center justify-center z-50`}>
           <View style={tw`bg-white p-6 rounded-xl shadow-xl w-80 max-w-[90%]`}>
             <Text style={tw`text-xl font-bold text-gray-800 mb-2`}>Eliminar Asignación</Text>

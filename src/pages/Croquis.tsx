@@ -787,7 +787,7 @@ export default function Croquis() {
         )}
 
         {/* Rename Modal */}
-        {croquisToRename && (
+        {!!croquisToRename && (
           <View style={tw`absolute inset-0 bg-black/50 flex items-center justify-center z-50`}>
             <View style={tw`bg-white p-6 rounded-xl shadow-xl w-80 max-w-[90%]`}>
               <Text style={tw`text-xl font-bold text-gray-800 mb-4`}>Renombrar Croquis</Text>
@@ -817,7 +817,7 @@ export default function Croquis() {
         )}
 
         {/* Delete Confirmation Modal */}
-        {croquisToDelete && (
+        {!!croquisToDelete && (
           <View style={tw`absolute inset-0 bg-black/50 flex items-center justify-center z-50`}>
             <View style={tw`bg-white p-6 rounded-xl shadow-xl w-80 max-w-[90%]`}>
               <Text style={tw`text-xl font-bold text-gray-800 mb-2`}>Eliminar Croquis</Text>
@@ -1116,7 +1116,7 @@ export default function Croquis() {
             })}
 
             {/* Current Drawing Preview */}
-            {currentPoints.length > 0 && (
+            {!!currentPoints.length && (
               <Line
                 points={currentPoints}
                 stroke="#0284c7"
@@ -1127,7 +1127,7 @@ export default function Croquis() {
             )}
 
             {/* Dynamic Measuring Line */}
-            {currentPoints.length >= 2 && cursorPos && ['street', 'manzana', 'barrio'].includes(tool) && (
+            {currentPoints.length >= 2 && !!cursorPos && ['street', 'manzana', 'barrio'].includes(tool) && (
               <Group>
                 <Line
                   points={[
@@ -1179,7 +1179,7 @@ export default function Croquis() {
 
         {/* Floating Action Buttons */}
         <View style={tw`absolute bottom-8 right-8 flex-row gap-4 items-end`}>
-          {currentPoints.length > 0 && (
+          {!!currentPoints.length && (
             <TouchableOpacity
               onPress={removeLastPoint}
               style={tw`bg-white p-3 rounded-full shadow-lg border border-gray-200`}
@@ -1188,7 +1188,7 @@ export default function Croquis() {
             </TouchableOpacity>
           )}
           
-          {currentPoints.length > 0 && (
+          {!!currentPoints.length && (
             <TouchableOpacity
               onPress={handleFinishDrawing}
               style={tw`bg-[#dcf0fa] px-6 py-3 rounded-full shadow-lg z-20`}
@@ -1331,7 +1331,7 @@ export default function Croquis() {
       </View>
       </View>
       {/* Confirm Dialog */}
-      {confirmDialog.visible && (
+      {!!confirmDialog.visible && (
         <View style={[tw`absolute inset-0 bg-black/50 z-50 items-center justify-center`, { position: 'absolute' as any }]}>
           <View style={tw`bg-white p-6 rounded-xl w-80 shadow-xl`}>
             <Text style={tw`text-lg font-bold text-gray-800 mb-2`}>{confirmDialog.title}</Text>

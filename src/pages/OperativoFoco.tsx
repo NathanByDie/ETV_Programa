@@ -105,53 +105,57 @@ export default function OperativoFoco() {
   const handlePrint = () => {
     if (!previewHtml) return;
     
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Imprimir Operativo de Foco</title>
-            <style>
-              body {
-                margin: 0;
-                padding: 0;
-                background-color: #525659;
-                display: flex;
-                justify-content: center;
-              }
-              @media print {
-                @page { margin: 0; size: legal portrait; }
-                body { margin: 0; padding: 0; background-color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; display: block; }
-                #pdf-content { 
-                  width: 215.9mm !important; 
-                  height: 355.6mm !important;
-                  padding: 10mm !important; 
-                  margin: 0 auto !important;
-                  box-sizing: border-box !important;
-                  box-shadow: none !important;
-                  display: flex !important;
-                  flex-direction: column !important;
-                  page-break-after: always; /* Force page break after each document */
-                }
-                #pdf-content:last-child {
-                  page-break-after: avoid;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            ${previewHtml}
-            <script>
-              window.onload = () => {
-                window.print();
-                setTimeout(() => window.close(), 500);
-              };
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
+    const printContainer = document.createElement('div');
+    printContainer.id = 'print-container';
+    printContainer.innerHTML = previewHtml;
+    
+    const style = document.createElement('style');
+    style.id = 'print-style';
+    style.innerHTML = `
+      @media print {
+        #root {
+          display: none !important;
+        }
+        body {
+          background-color: white !important;
+          margin: 0;
+          padding: 0;
+        }
+        @page { margin: 0; size: legal portrait; }
+        #print-container {
+          display: block !important;
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+        #pdf-content { 
+          width: 215.9mm !important; 
+          height: 355.6mm !important;
+          padding: 10mm !important; 
+          margin: 0 auto !important;
+          box-sizing: border-box !important;
+          box-shadow: none !important;
+          display: flex !important;
+          flex-direction: column !important;
+          page-break-after: always;
+        }
+        #pdf-content:last-child {
+          page-break-after: avoid;
+        }
+      }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(printContainer);
+    
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.head.removeChild(style);
+        document.body.removeChild(printContainer);
+      }, 1000);
+    }, 500);
   };
 
   // Centroid calculation for polygons
@@ -722,7 +726,7 @@ export default function OperativoFoco() {
                   })}
 
                   {/* Draw Foco Point and Radius */}
-                  {focoPoint && (
+                  {!!focoPoint && (
                     <Group>
                       <Circle
                         x={focoPoint.x}
@@ -768,7 +772,7 @@ export default function OperativoFoco() {
           </TouchableOpacity>
         </View>
 
-        {validationMsg && (
+        {!!validationMsg && (
           <View style={tw`mb-6 p-4 rounded-lg ${validationMsg.type === 'error' ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
             <Text style={tw`${validationMsg.type === 'error' ? 'text-red-700' : 'text-green-700'}`}>
               {validationMsg.text}
