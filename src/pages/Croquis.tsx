@@ -5,6 +5,7 @@ import { Trash2, MousePointer, PenTool, Square, Circle as CircleIcon, Map as Map
 import tw from "twrnc";
 import { api } from "../lib/api";
 import { useUnsavedChanges } from "../contexts/UnsavedChangesContext";
+import { useLoading } from "../contexts/LoadingContext";
 
 
 type ToolType = 'select' | 'street' | 'manzana' | 'vivienda' | 'barrio' | 'pan' | 'reference';
@@ -33,6 +34,7 @@ interface Element {
 
 export default function Croquis() {
   const { setHasUnsavedChanges } = useUnsavedChanges();
+  const { isLoading, setLoading } = useLoading();
   const [viewMode, setViewMode] = useState<'list' | 'edit'>('list');
   const [croquisList, setCroquisList] = useState<any[]>([]);
   const [currentCroquisId, setCurrentCroquisId] = useState<string | null>(null);
@@ -46,7 +48,8 @@ export default function Croquis() {
   const [currentPoints, setCurrentPoints] = useState<number[]>([]);
   const [stageScale, setStageScale] = useState(1);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
-  const [loading, setLoading] = useState(false);
+  const [shouldFitToScreen, setShouldFitToScreen] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [cursorPos, setCursorPos] = useState<{x: number, y: number} | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     visible: boolean;
@@ -81,15 +84,59 @@ export default function Croquis() {
     }
   }, [viewMode]);
 
+  useEffect(() => {
+    if (shouldFitToScreen && viewMode === 'edit' && stageDimensions.width > 0) {
+      if (elements.length > 0) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        elements.forEach(el => {
+          if (el.points) {
+            for (let i = 0; i < el.points.length; i += 2) {
+              minX = Math.min(minX, el.points[i]);
+              maxX = Math.max(maxX, el.points[i]);
+              minY = Math.min(minY, el.points[i+1]);
+              maxY = Math.max(maxY, el.points[i+1]);
+            }
+          }
+          if (el.x !== undefined && el.y !== undefined) {
+            minX = Math.min(minX, el.x);
+            maxX = Math.max(maxX, el.x);
+            minY = Math.min(minY, el.y);
+            maxY = Math.max(maxY, el.y);
+          }
+        });
+        
+        if (minX !== Infinity) {
+          const padding = 50;
+          const width = maxX - minX;
+          const height = maxY - minY;
+          
+          const scaleX = (stageDimensions.width - padding * 2) / (width || 1);
+          const scaleY = (stageDimensions.height - padding * 2) / (height || 1);
+          const scale = Math.min(scaleX, scaleY, 1); // Don't zoom in more than 1x
+          
+          setStageScale(scale);
+          setStagePos({
+            x: -(minX * scale) + (stageDimensions.width - width * scale) / 2,
+            y: -(minY * scale) + (stageDimensions.height - height * scale) / 2
+          });
+        }
+      } else {
+        setStageScale(1);
+        setStagePos({ x: 0, y: 0 });
+      }
+      setShouldFitToScreen(false);
+    }
+  }, [shouldFitToScreen, viewMode, stageDimensions, elements]);
+
   const loadCroquisList = async () => {
-    setLoading(true);
+    setIsFetching(true);
     try {
       const data = await api.getAllCroquis();
       setCroquisList(data || []);
     } catch (e) {
       console.error("Error loading croquis list:", e);
     } finally {
-      setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -101,6 +148,7 @@ export default function Croquis() {
     setHistoryStep(-1);
     setViewMode('edit');
     setHasUnsavedChanges(false);
+    setShouldFitToScreen(true);
   };
 
   const handleEdit = (croquis: any) => {
@@ -111,6 +159,7 @@ export default function Croquis() {
     setHistoryStep(0);
     setViewMode('edit');
     setHasUnsavedChanges(false);
+    setShouldFitToScreen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -119,7 +168,7 @@ export default function Croquis() {
 
   const confirmDelete = async () => {
     if (croquisToDelete) {
-      setLoading(true);
+      setLoading(true, 'Eliminando croquis...');
       await api.deleteCroquis(croquisToDelete);
       await loadCroquisList();
       setCroquisToDelete(null);
@@ -137,7 +186,7 @@ export default function Croquis() {
 
   const confirmRename = async () => {
     if (croquisToRename && croquisToRename.name.trim()) {
-      setLoading(true);
+      setLoading(true, 'Renombrando croquis...');
       await api.renameCroquis(croquisToRename.id, croquisToRename.name.trim());
       await loadCroquisList();
       setCroquisToRename(null);
@@ -207,7 +256,7 @@ export default function Croquis() {
       alert("Por favor, ingresa un nombre para el croquis.");
       return;
     }
-    setLoading(true);
+    setLoading(true, 'Guardando croquis...');
     try {
       const success = await api.saveCroquis(currentCroquisName, elements, currentCroquisId || undefined);
       if (success) {
@@ -729,7 +778,7 @@ export default function Croquis() {
           </TouchableOpacity>
         </View>
 
-        {loading ? (
+        {isFetching ? (
           <Text style={tw`text-center text-gray-500 mt-10`}>Cargando croquis...</Text>
         ) : croquisList.length === 0 ? (
           <View style={tw`bg-white p-8 rounded-xl items-center shadow-sm border border-gray-100 mt-10`}>
@@ -873,11 +922,11 @@ export default function Croquis() {
         </View>
         <TouchableOpacity
           onPress={saveCroquis}
-          disabled={loading}
-          style={tw`bg-[#dcf0fa] px-4 py-2 rounded-lg flex-row items-center shadow-sm ${loading ? 'opacity-50' : ''}`}
+          disabled={isLoading}
+          style={tw`bg-[#dcf0fa] px-4 py-2 rounded-lg flex-row items-center shadow-sm ${isLoading ? 'opacity-50' : ''}`}
         >
           <Save size={18} color="#1e3a8a" style={tw`mr-2`} />
-          <Text style={tw`text-blue-900 font-bold`}>{loading ? 'Guardando...' : 'Guardar Croquis'}</Text>
+          <Text style={tw`text-blue-900 font-bold`}>{isLoading ? 'Guardando...' : 'Guardar Croquis'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1320,11 +1369,11 @@ export default function Croquis() {
           <View style={tw`mt-auto pt-4`}>
             <TouchableOpacity 
               onPress={saveCroquis}
-              disabled={loading}
-              style={tw`bg-green-600 py-3 rounded-lg flex-row items-center justify-center shadow-sm ${loading ? 'opacity-50' : ''}`}
+              disabled={isLoading}
+              style={tw`bg-green-600 py-3 rounded-lg flex-row items-center justify-center shadow-sm ${isLoading ? 'opacity-50' : ''}`}
             >
               <Save size={18} color="white" style={tw`mr-2`} />
-              <Text style={tw`text-white font-bold`}>{loading ? "Guardando..." : "Guardar Croquis"}</Text>
+              <Text style={tw`text-white font-bold`}>{isLoading ? "Guardando..." : "Guardar Croquis"}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

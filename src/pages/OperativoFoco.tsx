@@ -230,6 +230,44 @@ export default function OperativoFoco() {
         setSelectedBarrioId("");
         setAvailableManzanas([]);
         setSelectedManzanas([]);
+
+        // Auto-fit preview map to entire croquis bounds
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        croquis.elements.forEach(el => {
+          if (el.points) {
+            for (let i = 0; i < el.points.length; i += 2) {
+              minX = Math.min(minX, el.points[i]);
+              maxX = Math.max(maxX, el.points[i]);
+              minY = Math.min(minY, el.points[i+1]);
+              maxY = Math.max(maxY, el.points[i+1]);
+            }
+          }
+          if (el.x !== undefined && el.y !== undefined) {
+            minX = Math.min(minX, el.x);
+            maxX = Math.max(maxX, el.x);
+            minY = Math.min(minY, el.y);
+            maxY = Math.max(maxY, el.y);
+          }
+        });
+
+        if (minX !== Infinity) {
+          const padding = 40;
+          const width = maxX - minX;
+          const height = maxY - minY;
+          
+          const stageWidth = window.innerWidth > 800 ? 800 : window.innerWidth - 60;
+          const stageHeight = 500;
+          
+          const scaleX = stageWidth / (width + padding * 2 || 1);
+          const scaleY = stageHeight / (height + padding * 2 || 1);
+          const scale = Math.min(scaleX, scaleY, 1);
+          
+          setPreviewScale(scale);
+          setPreviewPos({
+            x: -(minX * scale) + (stageWidth - width * scale) / 2 - (stageWidth / 2),
+            y: -(minY * scale) + (stageHeight - height * scale) / 2 - (stageHeight / 2)
+          });
+        }
       }
     } else {
       setAvailableBarrios([]);
@@ -273,17 +311,62 @@ export default function OperativoFoco() {
         const width = maxX - minX;
         const height = maxY - minY;
         
-        // Preview container is approx 300x180 (or full width on mobile)
-        // Let's assume a container width of 300 and height of 180 for scale calculation
-        const scaleX = 300 / (width + padding * 2);
-        const scaleY = 180 / (height + padding * 2);
-        const scale = Math.min(scaleX, scaleY);
+        const stageWidth = window.innerWidth > 800 ? 800 : window.innerWidth - 60;
+        const stageHeight = 500;
+        
+        const scaleX = stageWidth / (width + padding * 2 || 1);
+        const scaleY = stageHeight / (height + padding * 2 || 1);
+        const scale = Math.min(scaleX, scaleY, 1);
         
         setPreviewScale(scale);
         setPreviewPos({
-          x: -(minX - padding) * scale,
-          y: -(minY - padding) * scale
+          x: -(minX * scale) + (stageWidth - width * scale) / 2 - (stageWidth / 2),
+          y: -(minY * scale) + (stageHeight - height * scale) / 2 - (stageHeight / 2)
         });
+      }
+    } else if (!selectedBarrioId && selectedCroquisId) {
+      setAvailableManzanas([]);
+      setSelectedManzanas([]);
+      
+      // Refit to whole croquis if barrio is deselected
+      const croquis = allCroquis.find(c => c.id === selectedCroquisId);
+      if (croquis) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        croquis.elements.forEach(el => {
+          if (el.points) {
+            for (let i = 0; i < el.points.length; i += 2) {
+              minX = Math.min(minX, el.points[i]);
+              maxX = Math.max(maxX, el.points[i]);
+              minY = Math.min(minY, el.points[i+1]);
+              maxY = Math.max(maxY, el.points[i+1]);
+            }
+          }
+          if (el.x !== undefined && el.y !== undefined) {
+            minX = Math.min(minX, el.x);
+            maxX = Math.max(maxX, el.x);
+            minY = Math.min(minY, el.y);
+            maxY = Math.max(maxY, el.y);
+          }
+        });
+
+        if (minX !== Infinity) {
+          const padding = 40;
+          const width = maxX - minX;
+          const height = maxY - minY;
+          
+          const stageWidth = window.innerWidth > 800 ? 800 : window.innerWidth - 60;
+          const stageHeight = 500;
+          
+          const scaleX = stageWidth / (width + padding * 2 || 1);
+          const scaleY = stageHeight / (height + padding * 2 || 1);
+          const scale = Math.min(scaleX, scaleY, 1);
+          
+          setPreviewScale(scale);
+          setPreviewPos({
+            x: -(minX * scale) + (stageWidth - width * scale) / 2 - (stageWidth / 2),
+            y: -(minY * scale) + (stageHeight - height * scale) / 2 - (stageHeight / 2)
+          });
+        }
       }
     } else {
       setAvailableManzanas([]);
@@ -298,6 +381,23 @@ export default function OperativoFoco() {
   useEffect(() => {
     setValidationMsg(null);
   }, [tipo, lugarNombre, manzanas]);
+
+  useEffect(() => {
+    if (modoFoco && focoPoint && selectedCroquisId) {
+      const mapScale = 10;
+      const effectiveRadius = focoRadius * mapScale;
+      const croquis = allCroquis.find(c => c.id === selectedCroquisId);
+      if (croquis) {
+        const allManzanas = croquis.elements.filter(el => el.type === 'manzana' && el.points);
+        const nearbyManzanas = allManzanas.filter(m => {
+          const center = getCentroid(m.points!);
+          const dist = Math.sqrt(Math.pow(center.x - focoPoint.x, 2) + Math.pow(center.y - focoPoint.y, 2));
+          return dist <= effectiveRadius;
+        });
+        setSelectedManzanas(nearbyManzanas.map(m => m.id));
+      }
+    }
+  }, [focoRadius, focoPoint, modoFoco, selectedCroquisId, allCroquis]);
 
   const toggleManzana = (id: string) => {
     setSelectedManzanas(prev => 
@@ -316,32 +416,6 @@ export default function OperativoFoco() {
     const y = (pointer.y - stage.y()) / scale;
     
     setFocoPoint({ x, y });
-
-    // Find manzanas within 500m radius
-    // Assuming 1 pixel = 1 meter for simplicity, or we need a scale factor.
-    // Based on user feedback: "manzanas estan con distancias de 100 metros a lo largo y el foco marca la mitad aproximado"
-    // This suggests that 500 units in the map is visually about 250 meters.
-    // So 1 meter = 2 units.
-    // We will apply a scale factor of 2 to the radius.
-    const mapScale = 2;
-    const effectiveRadius = focoRadius * mapScale;
-    
-    if (selectedCroquisId) {
-      const croquis = allCroquis.find(c => c.id === selectedCroquisId);
-      if (croquis) {
-        // We search across ALL manzanas in the croquis, not just the current barrio
-        // because a Foco might span multiple barrios
-        const allManzanas = croquis.elements.filter(el => el.type === 'manzana' && el.points);
-        
-        const nearbyManzanas = allManzanas.filter(m => {
-          const center = getCentroid(m.points!);
-          const dist = Math.sqrt(Math.pow(center.x - x, 2) + Math.pow(center.y - y, 2));
-          return dist <= effectiveRadius;
-        });
-
-        setSelectedManzanas(nearbyManzanas.map(m => m.id));
-      }
-    }
   };
 
   const generatePreview = async () => {
@@ -351,36 +425,65 @@ export default function OperativoFoco() {
     }
 
     setLoading(true);
-    
-    // Group selected manzanas by barrio
-    const croquis = allCroquis.find(c => c.id === selectedCroquisId);
-    if (!croquis) return;
 
-    const barriosMap = new Map<string, CroquisElement[]>();
-    const unknownBarrioId = "unknown";
-
-    selectedManzanas.forEach(mId => {
-      const manzana = croquis.elements.find(el => el.id === mId);
-      if (manzana && manzana.points) {
-        // Find which barrio this manzana belongs to
-        const barrio = croquis.elements.find(el => 
-          el.type === 'barrio' && el.points && isPointInPolygon(manzana.points![0], manzana.points![1], el.points)
-        );
-        
-        const bId = barrio ? barrio.id : unknownBarrioId;
-        if (!barriosMap.has(bId)) {
-          barriosMap.set(bId, []);
-        }
-        barriosMap.get(bId)!.push(manzana);
+    try {
+      // Group selected manzanas by barrio
+      const croquis = allCroquis.find(c => c.id === selectedCroquisId);
+      if (!croquis) {
+        setLoading(false);
+        return;
       }
-    });
 
-    let fullHtmlContent = "";
-    const date = format(new Date(), "dd 'de' MMMM, yyyy", { locale: es });
+      const barriosMap = new Map<string, CroquisElement[]>();
+      const unknownBarrioId = "unknown";
 
-    // Iterate over each barrio group and generate a document page
-    for (const [bId, manzanasList] of barriosMap.entries()) {
-      const barrio = croquis.elements.find(el => el.id === bId);
+      selectedManzanas.forEach(mId => {
+        const manzana = croquis.elements.find(el => el.id === mId);
+        if (manzana && manzana.points) {
+          // Find which barrio this manzana belongs to
+          const barrio = croquis.elements.find(el => 
+            el.type === 'barrio' && el.points && isPointInPolygon(manzana.points![0], manzana.points![1], el.points)
+          );
+          
+          const bId = barrio ? barrio.id : unknownBarrioId;
+          if (!barriosMap.has(bId)) {
+            barriosMap.set(bId, []);
+          }
+          barriosMap.get(bId)!.push(manzana);
+        }
+      });
+
+      let fullHtmlContent = "";
+      const date = format(new Date(), "dd 'de' MMMM, yyyy", { locale: es });
+
+      // Save to history (asignaciones collection)
+      const allAsignaciones = await api.getAsignaciones();
+      const today = new Date().toISOString().split('T')[0];
+      const todayAsignaciones = allAsignaciones.filter((a: any) => {
+        if (!a.fecha) return false;
+        const dateStr = typeof a.fecha === 'string' ? a.fecha : new Date(a.fecha.seconds * 1000).toISOString();
+        return dateStr.split('T')[0] === today;
+      });
+      const trabajoNumero = todayAsignaciones.length + 1;
+
+      // Create an assignment record for the Foco operation
+      await api.addAsignacion({
+        tipo: "fumigacion", // Foco is usually fumigation
+        lugarType: "barrio",
+        lugarNombre: "Operativo Foco",
+        manzanas: selectedManzanas,
+        brigadistaId: "N/A",
+        brigadistaNombre: "N/A",
+        fecha: new Date().toISOString(),
+        status: "completado", // Mark as completed since it's an immediate operation
+        croquisId: selectedCroquisId,
+        barrioId: selectedBarrioId || "unknown",
+        trabajoNumero
+      });
+
+      // Iterate over each barrio group and generate a document page
+      for (const [bId, manzanasList] of barriosMap.entries()) {
+        const barrio = croquis.elements.find(el => el.id === bId);
       const barrioName = barrio ? (barrio.data.label || "Barrio Desconocido") : "Barrio Desconocido";
 
       let totalViviendas = 0;
@@ -402,7 +505,7 @@ export default function OperativoFoco() {
 
         tableRows += `
           <tr>
-            ${index === 0 ? `<td rowspan="${manzanasList.length}" style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; vertical-align: middle;">Trabajo No 1</td>` : ''}
+            ${index === 0 ? `<td rowspan="${manzanasList.length}" style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; vertical-align: middle;">Trabajo No ${trabajoNumero}</td>` : ''}
             <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center; font-weight: bold;">${label}</td>
             <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${isNaN(viviendas) ? '' : viviendas}</td>
             <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${isNaN(habitantes) ? '' : habitantes}</td>
@@ -627,7 +730,13 @@ export default function OperativoFoco() {
     }
 
     setPreviewHtml(fullHtmlContent);
-    setLoading(false);
+    setValidationMsg({ type: 'success', text: 'Documentos generados y operativo guardado en el historial.' });
+    } catch (e) {
+      console.error("Error generating preview or saving:", e);
+      setValidationMsg({ type: 'error', text: 'Error al generar documentos o guardar el operativo.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -737,7 +846,7 @@ export default function OperativoFoco() {
                       <Circle
                         x={focoPoint.x}
                         y={focoPoint.y}
-                        radius={focoRadius * 2} // Apply scale factor of 2
+                        radius={focoRadius * 10} // Apply scale factor of 10
                         stroke="red"
                         strokeWidth={1}
                         dash={[10, 10]}

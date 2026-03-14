@@ -8,6 +8,7 @@ import { AlertCircle, CheckCircle, Map as MapIcon } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
 import html2pdf from "html2pdf.js";
+import { useLoading } from "../contexts/LoadingContext";
 
 interface Brigadista {
   id: string;
@@ -77,6 +78,7 @@ const CustomPicker = ({ selectedValue, onValueChange, items, placeholder }: any)
 };
 
 export default function Asignacion() {
+  const { isLoading, setLoading } = useLoading();
   const [tipo, setTipo] = useState<"fumigacion" | "abatizacion">("fumigacion");
   const [lugarType, setLugarType] = useState<"barrio" | "comarca">("barrio");
   const [lugarNombre, setLugarNombre] = useState("");
@@ -89,7 +91,6 @@ export default function Asignacion() {
   const [availableManzanas, setAvailableManzanas] = useState<CroquisElement[]>([]);
   const [selectedManzanas, setSelectedManzanas] = useState<string[]>([]);
 
-  const [loading, setLoading] = useState(false);
   const [validationMsg, setValidationMsg] = useState<{type: 'error' | 'success', text: string} | null>(null);
 
   const [previewScale, setPreviewScale] = useState(0.5);
@@ -356,7 +357,7 @@ export default function Asignacion() {
       return;
     }
 
-    setLoading(true);
+    setLoading(true, 'Guardando asignación...');
     const isAvailable = await checkAvailability();
     
     if (!isAvailable) {
@@ -860,11 +861,11 @@ export default function Asignacion() {
 
         <TouchableOpacity
           onPress={handleSubmit}
-          disabled={loading}
+          disabled={isLoading}
           style={tw`w-full bg-[#dcf0fa] py-3 rounded-xl shadow-lg mt-4 items-center`}
         >
           <Text style={tw`text-blue-900 font-bold text-base`}>
-            {loading ? "Guardando..." : "Asignar Trabajo"}
+            {isLoading ? "Guardando..." : "Asignar Trabajo"}
           </Text>
         </TouchableOpacity>
 

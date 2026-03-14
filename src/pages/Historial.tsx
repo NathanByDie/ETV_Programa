@@ -5,6 +5,7 @@ import { es } from "date-fns/locale";
 import { Trash2, Search, Filter, MapPin, Calendar, Printer, User, Hash } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
+import { useLoading } from "../contexts/LoadingContext";
 
 interface Asignacion {
   id: string;
@@ -19,12 +20,13 @@ interface Asignacion {
 }
 
 export default function Historial() {
+  const { isLoading, setLoading } = useLoading();
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
   const [filtered, setFiltered] = useState<Asignacion[]>([]);
   const [allCroquis, setAllCroquis] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"todos" | "fumigacion" | "abatizacion">("todos");
-  const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(true);
   const [asignacionToDelete, setAsignacionToDelete] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export default function Historial() {
   }, [search, filterType, asignaciones]);
 
   const fetchData = async () => {
-    setLoading(true);
+    setIsFetching(true);
     try {
       const [asignacionesData, croquisData] = await Promise.all([
         api.getAsignaciones(),
@@ -63,7 +65,7 @@ export default function Historial() {
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
-      setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -73,7 +75,7 @@ export default function Historial() {
 
   const confirmDelete = async () => {
     if (asignacionToDelete) {
-      setLoading(true);
+      setLoading(true, 'Eliminando asignación...');
       await api.deleteAsignacion(asignacionToDelete);
       await fetchData();
       setAsignacionToDelete(null);
@@ -561,7 +563,7 @@ export default function Historial() {
       {/* Lista */}
       <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-8`}>
         <View style={tw`gap-3`}>
-          {loading ? (
+          {isFetching ? (
             <Text style={tw`text-center text-gray-500 py-8`}>Cargando...</Text>
           ) : filtered.length === 0 ? (
             <View style={tw`items-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200`}>

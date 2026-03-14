@@ -7,6 +7,7 @@ import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { signInAnonymously } from "firebase/auth";
 import { auth } from "./lib/firebase";
+import { api } from "./lib/api";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Asignacion from "./pages/Asignacion";
@@ -18,9 +19,12 @@ import { StatusBar } from "expo-status-bar";
 import tw from "twrnc";
 
 import { UnsavedChangesProvider } from "./contexts/UnsavedChangesContext";
+import { LoadingProvider } from "./contexts/LoadingContext";
 
 export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     signInAnonymously(auth).catch((error) => {
@@ -31,30 +35,68 @@ export default function App() {
     });
   }, []);
 
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOffline(false);
+      const queue = localStorage.getItem('sync_queue');
+      if (queue && JSON.parse(queue).length > 0) {
+        setIsSyncing(true);
+        await api.syncOfflineChanges();
+        setIsSyncing(false);
+      }
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Initial check if we came online with pending changes
+    if (navigator.onLine) {
+      handleOnline();
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   return (
-    <UnsavedChangesProvider>
-      <View style={[tw`flex-1`, { height: '100%' }]}>
-        <Router>
-          <StatusBar style="auto" />
-          {!!authError && (
-            <View style={tw`bg-orange-500 p-2 flex-row justify-between items-center shrink-0`}>
-              <Text style={tw`text-white text-center text-xs font-bold flex-1`}>{authError}</Text>
-              <TouchableOpacity onPress={() => setAuthError(null)} style={tw`px-2`}>
-                 <Text style={tw`text-white font-bold`}>X</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/asignar" element={<Asignacion />} />
-              <Route path="/foco" element={<OperativoFoco />} />
-              <Route path="/croquis" element={<Croquis />} />
-              <Route path="/historial" element={<Historial />} />
-            </Routes>
-          </Layout>
-        </Router>
-      </View>
-    </UnsavedChangesProvider>
+    <LoadingProvider>
+      <UnsavedChangesProvider>
+        <View style={[tw`flex-1`, { height: '100%' }]}>
+          <Router>
+            <StatusBar style="auto" />
+            {isOffline && (
+              <View style={tw`bg-red-500 p-2 flex-row justify-center items-center shrink-0 z-50`}>
+                <Text style={tw`text-white text-center text-sm font-bold`}>Modo Offline</Text>
+              </View>
+            )}
+            {isSyncing && !isOffline && (
+              <View style={tw`bg-blue-500 p-2 flex-row justify-center items-center shrink-0 z-50`}>
+                <Text style={tw`text-white text-center text-sm font-bold`}>Actualizando...</Text>
+              </View>
+            )}
+            {!!authError && (
+              <View style={tw`bg-orange-500 p-2 flex-row justify-between items-center shrink-0`}>
+                <Text style={tw`text-white text-center text-xs font-bold flex-1`}>{authError}</Text>
+                <TouchableOpacity onPress={() => setAuthError(null)} style={tw`px-2`}>
+                   <Text style={tw`text-white font-bold`}>X</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/asignar" element={<Asignacion />} />
+                <Route path="/foco" element={<OperativoFoco />} />
+                <Route path="/croquis" element={<Croquis />} />
+                <Route path="/historial" element={<Historial />} />
+              </Routes>
+            </Layout>
+          </Router>
+        </View>
+      </UnsavedChangesProvider>
+    </LoadingProvider>
   );
 }
