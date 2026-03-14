@@ -808,24 +808,55 @@ export default function OperativoFoco() {
                 <Layer>
                   {/* Draw all barrios/manzanas of the croquis */}
                   {!!selectedCroquisId && allCroquis.find(c => c.id === selectedCroquisId)?.elements.map((el, i) => {
+                    if (el.type === 'barrio' && el.points) {
+                      const centroid = getCentroid(el.points);
+                      return (
+                        <Group key={i}>
+                          <Line
+                            points={el.points}
+                            stroke="#0284c7"
+                            strokeWidth={4 / previewScale}
+                            dash={[10 / previewScale, 5 / previewScale]}
+                            closed
+                          />
+                          {!!el.data.label && (
+                            <KonvaText
+                              x={centroid.x}
+                              y={centroid.y}
+                              text={el.data.label}
+                              fontSize={24 / previewScale}
+                              fill="#0284c7"
+                              fontStyle="italic"
+                              align="center"
+                            />
+                          )}
+                        </Group>
+                      );
+                    }
                     if (el.type === 'manzana' && el.points) {
                       const isSelected = selectedManzanas.includes(el.id);
+                      const centroid = getCentroid(el.points);
+                      const label = el.data.blockNumber || el.data.label;
                       return (
                         <Group key={i}>
                           <Line
                             points={el.points}
                             fill={isSelected ? "#bae6fd" : "#f3f4f6"}
                             stroke={isSelected ? "#0284c7" : "#9ca3af"}
-                            strokeWidth={2}
+                            strokeWidth={2 / previewScale}
                             closed
                           />
-                          {!!el.data.label && (
+                          {!!label && (
                             <KonvaText
-                              x={getCentroid(el.points).x - 10}
-                              y={getCentroid(el.points).y - 5}
-                              text={el.data.label}
-                              fontSize={12}
+                              x={centroid.x}
+                              y={centroid.y}
+                              offsetX={8 / previewScale}
+                              offsetY={8 / previewScale}
+                              text={label}
+                              fontSize={16 / previewScale}
+                              fontStyle="bold"
                               fill="#374151"
+                              align="center"
                             />
                           )}
                         </Group>

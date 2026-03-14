@@ -804,18 +804,33 @@ export default function Asignacion() {
                   <Layer>
                     {/* Draw Selected Barrio */}
                     {!!availableBarrios.find(b => b.id === selectedBarrioId)?.points && (
-                      <Line
-                        points={availableBarrios.find(b => b.id === selectedBarrioId)!.points!}
-                        closed={true}
-                        fill="rgba(220, 240, 250, 0.5)"
-                        stroke="#0284c7"
-                        strokeWidth={2 / previewScale}
-                      />
+                      <Group>
+                        <Line
+                          points={availableBarrios.find(b => b.id === selectedBarrioId)!.points!}
+                          closed={true}
+                          fill="rgba(220, 240, 250, 0.5)"
+                          stroke="#0284c7"
+                          strokeWidth={4 / previewScale}
+                          dash={[10 / previewScale, 5 / previewScale]}
+                        />
+                        {!!availableBarrios.find(b => b.id === selectedBarrioId)!.data.label && (
+                          <KonvaText
+                            x={getCentroid(availableBarrios.find(b => b.id === selectedBarrioId)!.points!).x}
+                            y={getCentroid(availableBarrios.find(b => b.id === selectedBarrioId)!.points!).y}
+                            text={availableBarrios.find(b => b.id === selectedBarrioId)!.data.label}
+                            fontSize={24 / previewScale}
+                            fill="#0284c7"
+                            fontStyle="italic"
+                            align="center"
+                          />
+                        )}
+                      </Group>
                     )}
                     {/* Draw Manzanas */}
                     {availableManzanas.map(m => {
                       const centroid = getCentroid(m.points!);
                       const isSelected = selectedManzanas.includes(m.data.blockNumber || m.id.split('-').pop()!);
+                      const label = m.data.blockNumber || m.data.label;
                       return (
                         <Group key={m.id}>
                           <Line
@@ -825,15 +840,19 @@ export default function Asignacion() {
                             stroke="#1f2937"
                             strokeWidth={2 / previewScale}
                           />
-                          <KonvaText
-                            x={centroid.x}
-                            y={centroid.y}
-                            text={m.data.blockNumber}
-                            fontSize={12 / previewScale}
-                            fill={isSelected ? "#ffffff" : "#000000"}
-                            offsetX={(6 / previewScale)} // Approximate centering
-                            offsetY={(6 / previewScale)}
-                          />
+                          {!!label && (
+                            <KonvaText
+                              x={centroid.x}
+                              y={centroid.y}
+                              text={label}
+                              fontSize={16 / previewScale}
+                              fontStyle="bold"
+                              fill={isSelected ? "#ffffff" : "#000000"}
+                              offsetX={(8 / previewScale)} // Approximate centering
+                              offsetY={(8 / previewScale)}
+                              align="center"
+                            />
+                          )}
                         </Group>
                       );
                     })}
