@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Modal } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Stage, Layer, Line, Rect, Text as KonvaText, Group, Circle } from "react-konva";
 import { format, subDays, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, CheckCircle, Map as MapIcon } from "lucide-react";
+import { AlertCircle, CheckCircle, Map as MapIcon, X } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
 import html2pdf from "html2pdf.js";
@@ -400,14 +400,14 @@ export default function Asignacion() {
           }
 
           const croquisElements = allCroquis.find(c => c.id === selectedCroquisId)?.elements || [];
-          const selectedManzanasData = availableManzanas.filter(m => selectedManzanas.includes(m.data.blockNumber || m.id.split('-').pop()!));
+          const selectedManzanasData = availableManzanas.filter(m => selectedManzanas.includes(m.data.blockNumber || "S/N"));
           
           let tableRows = '';
           let totalViviendas = 0;
           let totalHabitantes = 0;
 
           selectedManzanasData.forEach((m, index) => {
-            const label = m.data.blockNumber || m.id.split('-').pop();
+            const label = m.data.blockNumber || "S/N";
             const ref = getReferenceForManzana(m, croquisElements);
             
             // Calculate houses dynamically based on the croquis elements
@@ -610,50 +610,49 @@ export default function Asignacion() {
     }
   };
 
-  if (previewHtml) {
-    return (
-      <View style={tw`flex-1 bg-gray-100 p-4`}>
-        <View style={tw`flex-row justify-between items-center mb-4`}>
-          <Text style={tw`text-xl font-bold text-gray-800`}>Vista Previa de Asignación</Text>
-          <View style={tw`flex-row gap-4`}>
-            <TouchableOpacity
-              onPress={() => setPreviewHtml(null)}
-              style={tw`px-4 py-2 bg-gray-300 rounded-lg`}
-            >
-              <Text style={tw`text-gray-800 font-bold`}>Volver</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handlePrint}
-              style={tw`px-4 py-2 bg-blue-600 rounded-lg flex-row items-center gap-2`}
-            >
-              <Text style={tw`text-white font-bold`}>Imprimir Documento</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        <View style={tw`flex-1 bg-white shadow-lg rounded-lg overflow-hidden`}>
-          {Platform.OS === 'web' ? (
-            <View 
-              style={{ width: '100%', height: '100%', overflow: 'hidden', padding: 20 }}
-            >
-              <iframe
-                srcDoc={previewHtml}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                title="Vista Previa PDF"
-              />
-            </View>
-          ) : (
-            <ScrollView style={tw`flex-1 p-4`}>
-              <Text>La vista previa solo está disponible en la versión web.</Text>
-            </ScrollView>
-          )}
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={tw`flex-1 p-4`}>
+      <Modal visible={!!previewHtml} animationType="slide" transparent={false}>
+        <View style={tw`flex-1 bg-gray-100 p-4`}>
+          <View style={tw`flex-row justify-between items-center mb-4`}>
+            <Text style={tw`text-xl font-bold text-gray-800`}>Vista Previa de Asignación</Text>
+            <View style={tw`flex-row gap-4`}>
+              <TouchableOpacity
+                onPress={() => setPreviewHtml(null)}
+                style={tw`px-4 py-2 bg-gray-300 rounded-lg flex-row items-center`}
+              >
+                <X size={20} color="#4b5563" style={tw`mr-2`} />
+                <Text style={tw`text-gray-800 font-bold`}>Cerrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handlePrint}
+                style={tw`px-4 py-2 bg-blue-600 rounded-lg flex-row items-center gap-2`}
+              >
+                <Text style={tw`text-white font-bold`}>Imprimir Documento</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <View style={tw`flex-1 bg-white shadow-lg rounded-lg overflow-hidden`}>
+            {Platform.OS === 'web' ? (
+              <View 
+                style={{ width: '100%', height: '100%', overflow: 'hidden', padding: 20 }}
+              >
+                <iframe
+                  srcDoc={previewHtml || ''}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  title="Vista Previa PDF"
+                />
+              </View>
+            ) : (
+              <ScrollView style={tw`flex-1 p-4`}>
+                <Text>La vista previa solo está disponible en la versión web.</Text>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       <Text style={tw`text-2xl font-bold text-gray-800 mb-6 shrink-0`}>Nueva Asignación</Text>
 
       <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-8`}>
@@ -735,7 +734,7 @@ export default function Asignacion() {
                     if (selectedManzanas.length === availableManzanas.length) {
                       setSelectedManzanas([]);
                     } else {
-                      setSelectedManzanas(availableManzanas.map(m => m.data.blockNumber || m.id.split('-').pop()!));
+                      setSelectedManzanas(availableManzanas.map(m => m.data.blockNumber || "S/N"));
                     }
                   }}
                   style={tw`px-2 py-1 bg-gray-200 rounded-md`}
@@ -749,7 +748,7 @@ export default function Asignacion() {
 
             <View style={tw`flex-row flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200`}>
               {availableManzanas.map((m) => {
-                const label = m.data.blockNumber || m.id.split('-').pop();
+                const label = m.data.blockNumber || "S/N";
                 const isSelected = selectedManzanas.includes(label!);
                 return (
                   <TouchableOpacity
@@ -776,8 +775,8 @@ export default function Asignacion() {
                   <Text style={tw`font-bold text-gray-700 flex-2`}>Punto Clave</Text>
                 </View>
                 <ScrollView style={tw`max-h-48`}>
-                  {availableManzanas.filter(m => selectedManzanas.includes(m.data.blockNumber || m.id.split('-').pop()!)).map((m, index) => {
-                    const label = m.data.blockNumber || m.id.split('-').pop();
+                  {availableManzanas.filter(m => selectedManzanas.includes(m.data.blockNumber || "S/N")).map((m, index) => {
+                    const label = m.data.blockNumber || "S/N";
                     const croquisElements = allCroquis.find(c => c.id === selectedCroquisId)?.elements || [];
                     const ref = getReferenceForManzana(m, croquisElements);
                     return (
@@ -808,18 +807,20 @@ export default function Asignacion() {
                         <Line
                           points={availableBarrios.find(b => b.id === selectedBarrioId)!.points!}
                           closed={true}
-                          fill="rgba(220, 240, 250, 0.5)"
+                          fill="rgba(220, 240, 250, 0.3)"
                           stroke="#0284c7"
-                          strokeWidth={4 / previewScale}
-                          dash={[10 / previewScale, 5 / previewScale]}
+                          strokeWidth={1.5 / previewScale}
                         />
                         {!!availableBarrios.find(b => b.id === selectedBarrioId)!.data.label && (
                           <KonvaText
                             x={getCentroid(availableBarrios.find(b => b.id === selectedBarrioId)!.points!).x}
                             y={getCentroid(availableBarrios.find(b => b.id === selectedBarrioId)!.points!).y}
                             text={availableBarrios.find(b => b.id === selectedBarrioId)!.data.label}
-                            fontSize={24 / previewScale}
+                            fontSize={14 / previewScale}
                             fill="#0284c7"
+                            stroke="white"
+                            strokeWidth={2 / previewScale}
+                            fillAfterStrokeEnabled={true}
                             fontStyle="italic"
                             align="center"
                           />
@@ -829,15 +830,27 @@ export default function Asignacion() {
                     {/* Draw Manzanas */}
                     {availableManzanas.map(m => {
                       const centroid = getCentroid(m.points!);
-                      const isSelected = selectedManzanas.includes(m.data.blockNumber || m.id.split('-').pop()!);
-                      const label = m.data.blockNumber || m.data.label;
+                      const label = m.data.blockNumber || "";
+                      const isSelected = selectedManzanas.includes(label);
+                      
+                      let fontSize = 30;
+                      const minOnScreen = 16;
+                      const maxOnScreen = 40;
+                      if (fontSize * previewScale < minOnScreen) {
+                        fontSize = minOnScreen / previewScale;
+                      } else if (fontSize * previewScale > maxOnScreen) {
+                        fontSize = maxOnScreen / previewScale;
+                      }
+                      
+                      const textWidth = label.length * (fontSize * 0.6);
+
                       return (
                         <Group key={m.id}>
                           <Line
                             points={m.points!}
                             closed={true}
                             fill={isSelected ? "#1e3a8a" : "rgba(209, 213, 219, 0.5)"}
-                            stroke="#1f2937"
+                            stroke={isSelected ? "#1e40af" : "#1f2937"}
                             strokeWidth={2 / previewScale}
                           />
                           {!!label && (
@@ -845,11 +858,11 @@ export default function Asignacion() {
                               x={centroid.x}
                               y={centroid.y}
                               text={label}
-                              fontSize={16 / previewScale}
+                              fontSize={fontSize}
                               fontStyle="bold"
                               fill={isSelected ? "#ffffff" : "#000000"}
-                              offsetX={(8 / previewScale)} // Approximate centering
-                              offsetY={(8 / previewScale)}
+                              offsetX={textWidth / 2}
+                              offsetY={fontSize / 2}
                               align="center"
                             />
                           )}

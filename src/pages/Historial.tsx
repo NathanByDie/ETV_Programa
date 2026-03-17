@@ -191,7 +191,7 @@ export default function Historial() {
       }
       ctx.closePath();
       
-      const isSelected = selectedManzanas.includes(m.data.blockNumber || m.id.split('-').pop()!);
+      const isSelected = selectedManzanas.includes(m.data.blockNumber || "S/N");
       ctx.fillStyle = isSelected ? '#1e3a8a' : 'rgba(209, 213, 219, 0.5)';
       ctx.fill();
       ctx.strokeStyle = '#1f2937';
@@ -201,10 +201,17 @@ export default function Historial() {
       // Draw Text
       const centroid = getCentroid(m.points);
       ctx.fillStyle = isSelected ? '#ffffff' : '#000000';
-      ctx.font = 'bold 14px Arial';
+      
+      let fontSize = 30 * scale;
+      const minOnScreen = 16;
+      const maxOnScreen = 40;
+      if (fontSize < minOnScreen) fontSize = minOnScreen;
+      if (fontSize > maxOnScreen) fontSize = maxOnScreen;
+      
+      ctx.font = `bold ${fontSize}px Arial`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(m.data.blockNumber || '', centroid.x * scale + offsetX, centroid.y * scale + offsetY);
+      ctx.fillText(m.data.blockNumber || 'S/N', centroid.x * scale + offsetX, centroid.y * scale + offsetY);
     });
 
     return canvas.toDataURL('image/png');
@@ -240,7 +247,7 @@ export default function Historial() {
     }
 
     const selectedManzanasData = availableManzanas.filter(m => 
-      item.manzanas.includes(m.data.blockNumber || m.id.split('-').pop()!)
+      item.manzanas.includes(m.data.blockNumber || "S/N")
     );
 
     let mapImage = item.mapImage || '';
@@ -254,7 +261,7 @@ export default function Historial() {
 
     if (selectedManzanasData.length > 0) {
       selectedManzanasData.forEach((m, index) => {
-        const label = m.data.blockNumber || m.id.split('-').pop();
+        const label = m.data.blockNumber || "S/N";
         const ref = getReferenceForManzana(m, croquisElements);
         
         let calculatedHouses = 0;

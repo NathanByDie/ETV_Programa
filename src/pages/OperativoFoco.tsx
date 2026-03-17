@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform } from "react-native";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, useWindowDimensions, Modal } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Stage, Layer, Line, Rect, Text as KonvaText, Group, Circle } from "react-konva";
 import Konva from "konva";
 import { format, subDays, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, CheckCircle, Map as MapIcon, Target } from "lucide-react";
+import { AlertCircle, CheckCircle, Map as MapIcon, Target, X } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
 import html2pdf from "html2pdf.js";
@@ -100,6 +100,14 @@ export default function OperativoFoco() {
   const [previewScale, setPreviewScale] = useState(0.5);
   const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 });
   const previewStageRef = useRef<any>(null);
+
+  const { width: windowWidth } = useWindowDimensions();
+  const stageWidth = useMemo(() => {
+    if (windowWidth >= 1024) {
+      return ((windowWidth - 56) * 0.666) - 48;
+    }
+    return windowWidth - 80;
+  }, [windowWidth]);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
   const handlePrint = () => {
@@ -255,7 +263,6 @@ export default function OperativoFoco() {
           const width = maxX - minX;
           const height = maxY - minY;
           
-          const stageWidth = window.innerWidth > 800 ? 800 : window.innerWidth - 60;
           const stageHeight = 500;
           
           const scaleX = stageWidth / (width + padding * 2 || 1);
@@ -273,7 +280,7 @@ export default function OperativoFoco() {
       setAvailableBarrios([]);
       setSelectedBarrioId("");
     }
-  }, [selectedCroquisId, allCroquis]);
+  }, [selectedCroquisId, allCroquis, stageWidth]);
 
   // Update manzanas when barrio changes
   useEffect(() => {
@@ -311,7 +318,6 @@ export default function OperativoFoco() {
         const width = maxX - minX;
         const height = maxY - minY;
         
-        const stageWidth = window.innerWidth > 800 ? 800 : window.innerWidth - 60;
         const stageHeight = 500;
         
         const scaleX = stageWidth / (width + padding * 2 || 1);
@@ -354,7 +360,6 @@ export default function OperativoFoco() {
           const width = maxX - minX;
           const height = maxY - minY;
           
-          const stageWidth = window.innerWidth > 800 ? 800 : window.innerWidth - 60;
           const stageHeight = 500;
           
           const scaleX = stageWidth / (width + padding * 2 || 1);
@@ -372,7 +377,7 @@ export default function OperativoFoco() {
       setAvailableManzanas([]);
       setSelectedManzanas([]);
     }
-  }, [selectedBarrioId]);
+  }, [selectedBarrioId, selectedCroquisId, allCroquis, stageWidth]);
 
   useEffect(() => {
     setManzanas(selectedManzanas.join(", "));
@@ -464,34 +469,36 @@ export default function OperativoFoco() {
         const dateStr = typeof a.fecha === 'string' ? a.fecha : new Date(a.fecha.seconds * 1000).toISOString();
         return dateStr.split('T')[0] === today;
       });
-      const trabajoNumero = todayAsignaciones.length + 1;
+      let trabajoNumero = todayAsignaciones.length + 1;
 
-      // Create an assignment record for the Foco operation
-      await api.addAsignacion({
-        tipo: "fumigacion", // Foco is usually fumigation
-        lugarType: "barrio",
-        lugarNombre: "Operativo Foco",
-        manzanas: selectedManzanas,
-        brigadistaId: "N/A",
-        brigadistaNombre: "N/A",
-        fecha: new Date().toISOString(),
-        status: "completado", // Mark as completed since it's an immediate operation
-        croquisId: selectedCroquisId,
-        barrioId: selectedBarrioId || "unknown",
-        trabajoNumero
-      });
-
-      // Iterate over each barrio group and generate a document page
+      // Iterate over each barrio group and generate a document page and an Asignacion record
       for (const [bId, manzanasList] of barriosMap.entries()) {
         const barrio = croquis.elements.find(el => el.id === bId);
-      const barrioName = barrio ? (barrio.data.label || "Barrio Desconocido") : "Barrio Desconocido";
+        const barrioName = barrio ? (barrio.data.label || "Barrio Desconocido") : "Barrio Desconocido";
+
+        // Create an assignment record for this specific barrio in the Foco operation
+        await api.addAsignacion({
+          tipo: "fumigacion", // Foco is usually fumigation
+          lugarType: "barrio",
+          lugarNombre: `Foco: ${barrioName}`,
+          manzanas: manzanasList.map(m => m.id),
+          brigadistaId: "N/A",
+          brigadistaNombre: "N/A",
+          fecha: new Date().toISOString(),
+          status: "completado", // Mark as completed since it's an immediate operation
+          croquisId: selectedCroquisId,
+          barrioId: bId,
+          trabajoNumero
+        });
+        
+        trabajoNumero++; // Increment for the next barrio if any
 
       let totalViviendas = 0;
       let totalHabitantes = 0;
       let tableRows = "";
 
       manzanasList.forEach((m, index) => {
-        const label = m.data.label || `M-${index + 1}`;
+        const label = m.data.blockNumber || "S/N";
         const ref = getReferenceForManzana(m, croquis.elements);
         
         // Use houseCount from the manzana data
@@ -505,7 +512,7 @@ export default function OperativoFoco() {
 
         tableRows += `
           <tr>
-            ${index === 0 ? `<td rowspan="${manzanasList.length}" style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; vertical-align: middle;">Trabajo No ${trabajoNumero}</td>` : ''}
+            ${index === 0 ? `<td rowspan="${manzanasList.length}" style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; font-weight: bold; vertical-align: middle;">Trabajo No ${trabajoNumero - 1}</td>` : ''}
             <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center; font-weight: bold;">${label}</td>
             <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${isNaN(viviendas) ? '' : viviendas}</td>
             <td style="border: 1px solid #000; padding: 6px 8px; font-size: 12px; text-align: center;">${isNaN(habitantes) ? '' : habitantes}</td>
@@ -537,6 +544,10 @@ export default function OperativoFoco() {
       maxY += padding;
       const width = maxX - minX;
       const height = maxY - minY;
+      
+      // Estimate the scale at which this image will be displayed in the PDF (approx 500px wide/high)
+      const estimatedDisplaySize = 500;
+      const estimatedScale = estimatedDisplaySize / Math.max(width, height);
 
       // Create a temporary stage to export image
       const container = document.createElement('div');
@@ -556,20 +567,34 @@ export default function OperativoFoco() {
         if (m.points) {
           const poly = new Konva.Line({
             points: m.points.map((p, i) => i % 2 === 0 ? p - minX : p - minY),
-            fill: '#e0f2fe',
-            stroke: '#0284c7',
+            fill: '#1e3a8a',
+            stroke: '#1e40af',
             strokeWidth: 2,
             closed: true,
           });
           layer.add(poly);
 
           const center = getCentroid(m.points);
+          const label = m.data.blockNumber || 'S/N';
+          
+          let fontSize = 30;
+          const minOnScreen = 16;
+          const maxOnScreen = 40;
+          if (fontSize * estimatedScale < minOnScreen) {
+            fontSize = minOnScreen / estimatedScale;
+          } else if (fontSize * estimatedScale > maxOnScreen) {
+            fontSize = maxOnScreen / estimatedScale;
+          }
+          
+          const textWidth = label.length * (fontSize * 0.6);
+
           const text = new Konva.Text({
-            x: center.x - minX - 10,
-            y: center.y - minY - 5,
-            text: m.data.label || 'M',
-            fontSize: 12,
-            fill: 'black',
+            x: center.x - minX - (textWidth / 2),
+            y: center.y - minY - (fontSize / 2),
+            text: label,
+            fontSize: fontSize,
+            fill: 'white',
+            fontStyle: 'bold',
           });
           layer.add(text);
         }
@@ -739,15 +764,80 @@ export default function OperativoFoco() {
     }
   };
 
+  const groupedManzanas = useMemo(() => {
+    if (!selectedCroquisId) return [];
+    const croquis = allCroquis.find(c => c.id === selectedCroquisId);
+    if (!croquis) return [];
+
+    const groups = new Map<string, { barrioName: string, manzanas: any[] }>();
+    
+    selectedManzanas.forEach(mId => {
+      const manzana = croquis.elements.find(el => el.id === mId);
+      if (manzana && manzana.points) {
+        const barrio = croquis.elements.find(el => 
+          el.type === 'barrio' && el.points && isPointInPolygon(manzana.points![0], manzana.points![1], el.points)
+        );
+        const bId = barrio ? barrio.id : 'unknown';
+        const bName = barrio ? (barrio.data.label || 'Barrio Desconocido') : 'Barrio Desconocido';
+        
+        if (!groups.has(bId)) {
+          groups.set(bId, { barrioName: bName, manzanas: [] });
+        }
+        groups.get(bId)!.manzanas.push(manzana);
+      }
+    });
+
+    return Array.from(groups.values());
+  }, [selectedManzanas, selectedCroquisId, allCroquis]);
+
   return (
     <View style={tw`flex-1 p-4`}>
+      <Modal visible={!!previewHtml} animationType="slide" transparent={false}>
+        <View style={tw`flex-1 bg-gray-100 p-4`}>
+          <View style={tw`flex-row justify-between items-center mb-4`}>
+            <Text style={tw`text-xl font-bold text-gray-800`}>Vista Previa de Foco</Text>
+            <View style={tw`flex-row gap-4`}>
+              <TouchableOpacity
+                onPress={() => setPreviewHtml(null)}
+                style={tw`px-4 py-2 bg-gray-300 rounded-lg flex-row items-center`}
+              >
+                <X size={20} color="#4b5563" style={tw`mr-2`} />
+                <Text style={tw`text-gray-800 font-bold`}>Cerrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handlePrint}
+                style={tw`px-4 py-2 bg-blue-600 rounded-lg flex-row items-center gap-2`}
+              >
+                <Text style={tw`text-white font-bold`}>Imprimir Documento</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <View style={tw`flex-1 bg-white shadow-lg rounded-lg overflow-hidden`}>
+            {Platform.OS === 'web' ? (
+              <View 
+                style={{ width: '100%', height: '100%', overflow: 'hidden', padding: 20 }}
+              >
+                <iframe
+                  srcDoc={previewHtml || ''}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  title="Vista Previa PDF"
+                />
+              </View>
+            ) : (
+              <ScrollView style={tw`flex-1 p-4`}>
+                <Text>La vista previa solo está disponible en la versión web.</Text>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       <Text style={tw`text-3xl font-bold text-gray-800 mb-6 shrink-0`}>Operativo de Foco</Text>
 
       <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-8`}>
         <View style={tw`bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6`}>
-          <Text style={tw`text-lg font-semibold text-gray-700 mb-4`}>Configuración del Foco</Text>
-          
-          <View style={tw`mb-4`}>
+          <View style={tw`mb-2`}>
             <Text style={tw`text-sm font-medium text-gray-600 mb-2`}>Seleccionar Croquis</Text>
             <View style={tw`border border-gray-300 rounded-lg overflow-hidden bg-gray-50`}>
               <CustomPicker
@@ -758,147 +848,197 @@ export default function OperativoFoco() {
               />
             </View>
           </View>
-
-          {/* We don't necessarily need to select a Barrio first for Foco, but it helps to center the map. 
-              Or we can just show the whole croquis. 
-              Let's keep Barrio selection to help navigate. */}
-          <View style={tw`mb-4`}>
-            <Text style={tw`text-sm font-medium text-gray-600 mb-2`}>Centrar en Barrio (Opcional)</Text>
-            <View style={tw`border border-gray-300 rounded-lg overflow-hidden bg-gray-50`}>
-              <CustomPicker
-                selectedValue={selectedBarrioId}
-                onValueChange={setSelectedBarrioId}
-                items={availableBarrios.map(b => ({ label: b.data.label || "Sin nombre", value: b.id }))}
-                placeholder="Seleccione un barrio para centrar..."
-              />
-            </View>
-          </View>
-          
-          <View style={tw`mb-4`}>
-            <Text style={tw`text-sm font-medium text-gray-600 mb-2`}>Radio del Foco (metros)</Text>
-            <TextInput
-              style={tw`border border-gray-300 rounded-lg p-3 bg-gray-50`}
-              value={focoRadius.toString()}
-              onChangeText={(text) => setFocoRadius(Number(text) || 0)}
-              keyboardType="numeric"
-            />
-          </View>
         </View>
 
         {!!selectedCroquisId && (
-          <View style={tw`bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6`}>
-            <Text style={tw`text-lg font-semibold text-gray-700 mb-4`}>Mapa del Foco</Text>
-            <Text style={tw`text-sm text-gray-500 mb-4`}>
-              Haga clic en el mapa para establecer el punto central del foco. Se seleccionarán automáticamente las manzanas dentro del radio de {focoRadius}m.
-            </Text>
-            
-            <View style={{ overflow: 'hidden', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8 }}>
-              <Stage
-                width={window.innerWidth > 800 ? 800 : window.innerWidth - 60}
-                height={500}
-                scaleX={previewScale}
-                scaleY={previewScale}
-                x={previewPos.x + (window.innerWidth > 800 ? 400 : (window.innerWidth - 60)/2)} 
-                y={previewPos.y + 250}
-                draggable
-                onClick={handleMapClick}
-                onTap={handleMapClick}
-                ref={previewStageRef}
-              >
-                <Layer>
-                  {/* Draw all barrios/manzanas of the croquis */}
-                  {!!selectedCroquisId && allCroquis.find(c => c.id === selectedCroquisId)?.elements.map((el, i) => {
-                    if (el.type === 'barrio' && el.points) {
-                      const centroid = getCentroid(el.points);
-                      return (
-                        <Group key={i}>
-                          <Line
-                            points={el.points}
-                            stroke="#0284c7"
-                            strokeWidth={4 / previewScale}
-                            dash={[10 / previewScale, 5 / previewScale]}
-                            closed
-                          />
-                          {!!el.data.label && (
-                            <KonvaText
-                              x={centroid.x}
-                              y={centroid.y}
-                              text={el.data.label}
-                              fontSize={24 / previewScale}
-                              fill="#0284c7"
-                              fontStyle="italic"
-                              align="center"
-                            />
-                          )}
-                        </Group>
-                      );
-                    }
-                    if (el.type === 'manzana' && el.points) {
-                      const isSelected = selectedManzanas.includes(el.id);
-                      const centroid = getCentroid(el.points);
-                      const label = el.data.blockNumber || el.data.label;
-                      return (
-                        <Group key={i}>
-                          <Line
-                            points={el.points}
-                            fill={isSelected ? "#bae6fd" : "#f3f4f6"}
-                            stroke={isSelected ? "#0284c7" : "#9ca3af"}
-                            strokeWidth={2 / previewScale}
-                            closed
-                          />
-                          {!!label && (
-                            <KonvaText
-                              x={centroid.x}
-                              y={centroid.y}
-                              offsetX={8 / previewScale}
-                              offsetY={8 / previewScale}
-                              text={label}
-                              fontSize={16 / previewScale}
-                              fontStyle="bold"
-                              fill="#374151"
-                              align="center"
-                            />
-                          )}
-                        </Group>
-                      );
-                    }
-                    return null;
-                  })}
-
-                  {/* Draw Foco Point and Radius */}
-                  {!!focoPoint && (
-                    <Group>
-                      <Circle
-                        x={focoPoint.x}
-                        y={focoPoint.y}
-                        radius={5}
-                        fill="red"
-                      />
-                      <Circle
-                        x={focoPoint.x}
-                        y={focoPoint.y}
-                        radius={focoRadius * 10} // Apply scale factor of 10
-                        stroke="red"
-                        strokeWidth={1}
-                        dash={[10, 10]}
-                        listening={false}
-                      />
-                    </Group>
-                  )}
-                </Layer>
-              </Stage>
-            </View>
-            
-            <View style={tw`mt-4 flex-row justify-between items-center`}>
-              <Text style={tw`text-gray-600`}>
-                {selectedManzanas.length} manzanas seleccionadas
+          <View style={tw`flex-col lg:flex-row gap-6 mb-6`}>
+            {/* Left Column: Map */}
+            <View style={tw`flex-[2] bg-white p-6 rounded-xl shadow-sm border border-gray-100`}>
+              <Text style={tw`text-lg font-semibold text-gray-700 mb-2`}>Mapa del Foco</Text>
+              <Text style={tw`text-sm text-gray-500 mb-4`}>
+                Haga clic en el mapa para establecer el punto central del foco. Se seleccionarán automáticamente las manzanas dentro del radio de {focoRadius}m.
               </Text>
-              <TouchableOpacity
-                onPress={() => setSelectedManzanas([])}
-                style={tw`bg-gray-200 px-4 py-2 rounded-lg`}
-              >
-                <Text style={tw`text-gray-700`}>Limpiar Selección</Text>
-              </TouchableOpacity>
+              
+              <View style={{ overflow: 'hidden', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8 }}>
+                <Stage
+                  width={stageWidth}
+                  height={500}
+                  scaleX={previewScale}
+                  scaleY={previewScale}
+                  x={previewPos.x + stageWidth / 2} 
+                  y={previewPos.y + 250}
+                  draggable
+                  onClick={handleMapClick}
+                  onTap={handleMapClick}
+                  ref={previewStageRef}
+                >
+                  <Layer>
+                    {/* Draw all barrios/manzanas of the croquis */}
+                    {!!selectedCroquisId && allCroquis.find(c => c.id === selectedCroquisId)?.elements.map((el, i) => {
+                      if (el.type === 'barrio' && el.points) {
+                        const centroid = getCentroid(el.points);
+                        return (
+                          <Group key={i}>
+                            <Line
+                              points={el.points}
+                              stroke="#0284c7"
+                              strokeWidth={1.5 / previewScale}
+                              fill="rgba(220, 240, 250, 0.3)"
+                              closed
+                            />
+                            {!!el.data.label && (
+                              <KonvaText
+                                x={centroid.x}
+                                y={centroid.y}
+                                text={el.data.label}
+                                fontSize={14 / previewScale}
+                                fill="#0284c7"
+                                stroke="white"
+                                strokeWidth={2 / previewScale}
+                                fillAfterStrokeEnabled={true}
+                                fontStyle="italic"
+                                align="center"
+                              />
+                            )}
+                          </Group>
+                        );
+                      }
+                      if (el.type === 'manzana' && el.points) {
+                        const isSelected = selectedManzanas.includes(el.id);
+                        const centroid = getCentroid(el.points);
+                        const label = el.data.blockNumber || "";
+                        
+                        let fontSize = 30;
+                        const minOnScreen = 16;
+                        const maxOnScreen = 40;
+                        if (fontSize * previewScale < minOnScreen) {
+                          fontSize = minOnScreen / previewScale;
+                        } else if (fontSize * previewScale > maxOnScreen) {
+                          fontSize = maxOnScreen / previewScale;
+                        }
+                        
+                        const textWidth = label.length * (fontSize * 0.6);
+                        
+                        return (
+                          <Group key={i}>
+                            <Line
+                              points={el.points}
+                              fill={isSelected ? "#1e3a8a" : "#f3f4f6"}
+                              stroke={isSelected ? "#1e40af" : "#9ca3af"}
+                              strokeWidth={2 / previewScale}
+                              closed
+                            />
+                            {!!label && (
+                              <KonvaText
+                                x={centroid.x}
+                                y={centroid.y}
+                                text={label}
+                                fontSize={fontSize}
+                                fontStyle="bold"
+                                fill={isSelected ? "#ffffff" : "#374151"}
+                                offsetX={textWidth / 2}
+                                offsetY={fontSize / 2}
+                                align="center"
+                              />
+                            )}
+                          </Group>
+                        );
+                      }
+                      return null;
+                    })}
+
+                    {/* Draw Foco Point and Radius */}
+                    {!!focoPoint && (
+                      <Group>
+                        <Circle
+                          x={focoPoint.x}
+                          y={focoPoint.y}
+                          radius={5}
+                          fill="red"
+                        />
+                        <Circle
+                          x={focoPoint.x}
+                          y={focoPoint.y}
+                          radius={focoRadius * 10} // Apply scale factor of 10
+                          stroke="red"
+                          strokeWidth={1}
+                          dash={[10, 10]}
+                          listening={false}
+                        />
+                      </Group>
+                    )}
+                  </Layer>
+                </Stage>
+              </View>
+              
+              <View style={tw`mt-4 flex-row justify-between items-center`}>
+                <Text style={tw`text-gray-600`}>
+                  {selectedManzanas.length} manzanas seleccionadas
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setSelectedManzanas([])}
+                  style={tw`bg-gray-200 px-4 py-2 rounded-lg`}
+                >
+                  <Text style={tw`text-gray-700`}>Limpiar Selección</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Right Column: Properties & Selected Manzanas */}
+            <View style={tw`flex-[1] flex-col gap-6`}>
+              {/* Properties */}
+              <View style={tw`bg-white p-6 rounded-xl shadow-sm border border-gray-100`}>
+                <Text style={tw`text-lg font-semibold text-gray-700 mb-4`}>Configuración</Text>
+                
+                <View style={tw`mb-4`}>
+                  <Text style={tw`text-sm font-medium text-gray-600 mb-2`}>Centrar en Barrio (Opcional)</Text>
+                  <View style={tw`border border-gray-300 rounded-lg overflow-hidden bg-gray-50`}>
+                    <CustomPicker
+                      selectedValue={selectedBarrioId}
+                      onValueChange={setSelectedBarrioId}
+                      items={availableBarrios.map(b => ({ label: b.data.label || "Sin nombre", value: b.id }))}
+                      placeholder="Seleccione un barrio para centrar..."
+                    />
+                  </View>
+                </View>
+                
+                <View style={tw`mb-2`}>
+                  <Text style={tw`text-sm font-medium text-gray-600 mb-2`}>Radio del Foco (metros)</Text>
+                  <TextInput
+                    style={tw`border border-gray-300 rounded-lg p-3 bg-gray-50`}
+                    value={focoRadius.toString()}
+                    onChangeText={(text) => setFocoRadius(Number(text) || 0)}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
+              {/* Selected Manzanas List */}
+              <View style={tw`bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex-1`}>
+                <Text style={tw`text-lg font-semibold text-gray-700 mb-4`}>Manzanas Seleccionadas</Text>
+                {groupedManzanas.length === 0 ? (
+                  <Text style={tw`text-sm text-gray-500 italic`}>No hay manzanas seleccionadas. Haga clic en el mapa para iniciar el foco.</Text>
+                ) : (
+                  <ScrollView style={tw`flex-1 max-h-96`}>
+                    {groupedManzanas.map((group, index) => (
+                      <View key={index} style={tw`mb-4`}>
+                        <Text style={tw`font-bold text-gray-800 mb-2 border-b border-gray-200 pb-1`}>
+                          {group.barrioName}
+                        </Text>
+                        <View style={tw`flex-row flex-wrap gap-2`}>
+                          {group.manzanas.map((m, i) => (
+                            <View key={i} style={tw`bg-blue-50 border border-blue-200 px-3 py-1 rounded-full`}>
+                              <Text style={tw`text-blue-800 text-sm font-medium`}>
+                                M-{m.data.blockNumber || 'S/N'}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
             </View>
           </View>
         )}
@@ -917,26 +1057,6 @@ export default function OperativoFoco() {
             <Text style={tw`${validationMsg.type === 'error' ? 'text-red-700' : 'text-green-700'}`}>
               {validationMsg.text}
             </Text>
-          </View>
-        )}
-
-        {!!previewHtml && (
-          <View style={tw`bg-white p-6 rounded-xl shadow-sm border border-gray-100 mt-6`}>
-            <Text style={tw`text-lg font-semibold text-gray-700 mb-4`}>Vista Previa</Text>
-            <View style={tw`h-96 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 mb-4`}>
-              <iframe
-                srcDoc={previewHtml}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                title="Vista Previa PDF"
-              />
-            </View>
-            <TouchableOpacity
-              onPress={handlePrint}
-              style={tw`bg-green-600 p-4 rounded-xl items-center shadow-lg flex-row justify-center`}
-            >
-              <Target size={24} color="white" style={tw`mr-2`} />
-              <Text style={tw`text-white font-bold text-lg`}>Imprimir Documentos</Text>
-            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
