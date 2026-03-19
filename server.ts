@@ -1,4 +1,5 @@
 import express from "express";
+import 'dotenv/config';
 import makeWASocket, { useMultiFileAuthState, DisconnectReason, Browsers, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
@@ -198,10 +199,12 @@ app.post('/api/whatsapp/send', async (req, res) => {
 import { fileURLToPath } from 'url';
 
 const getDirname = () => {
-    if (typeof __dirname !== 'undefined') {
-        return __dirname;
+    try {
+        if (typeof __dirname !== 'undefined') return __dirname;
+        return path.dirname(fileURLToPath(import.meta.url));
+    } catch (e) {
+        return process.cwd();
     }
-    return path.dirname(fileURLToPath(import.meta.url));
 };
 
 const currentDir = getDirname();
@@ -218,9 +221,23 @@ async function startServer() {
         // En producción (Electron), currentDir apunta a la carpeta donde está server.js
         // Si server.js está en la raíz, distPath es ./dist. Si está en dist/, es currentDir.
         const distPath = path.basename(currentDir) === 'dist' ? currentDir : path.join(currentDir, 'dist');
+        console.log('--- PRODUCTION MODE ---');
+        console.log('Current directory:', currentDir);
+        console.log('Serving static files from:', distPath);
+        
+        if (!fs.existsSync(distPath)) {
+            console.error('CRITICAL ERROR: distPath does not exist:', distPath);
+        }
+
         app.use(express.static(distPath));
         app.get('*', (req, res) => {
-            res.sendFile(path.join(distPath, 'index.html'));
+            const indexPath = path.join(distPath, 'index.html');
+            if (fs.existsSync(indexPath)) {
+                res.sendFile(indexPath);
+            } else {
+                console.error('CRITICAL ERROR: index.html not found at:', indexPath);
+                res.status(404).send('index.html not found in ' + distPath);
+            }
         });
     }
 
