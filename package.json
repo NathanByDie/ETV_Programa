@@ -87,14 +87,11 @@
       "target": [
         "nsis",
         "portable"
-      ],
-      "icon": "assetsimages/LogoAppETV.png"
+      ]
     },
     "mac": {
-      "icon": "assetsimages/LogoAppETV.png"
     },
     "linux": {
-      "icon": "assetsimages/LogoAppETV.png"
     },
     "files": [
       "dist/**/*",
