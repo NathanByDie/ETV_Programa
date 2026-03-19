@@ -41,7 +41,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             resizeMode="contain"
           />
         </View>
-        <Text style={tw`text-xl font-bold text-blue-900`}>Gestor Brigadas</Text>
+        <Text style={tw`text-xl font-bold text-blue-900`}>Gestor</Text>
       </View>
       
       {/* Top Navigation - Fixed under header */}

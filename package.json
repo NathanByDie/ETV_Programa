@@ -17,7 +17,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://127.0.0.1:3000 && electron .\"",
     "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
@@ -88,13 +88,13 @@
         "nsis",
         "portable"
       ],
-      "icon": "assetsimages/LogoAppETV.jpg"
+      "icon": "assetsimages/LogoAppETV.png"
     },
     "mac": {
-      "icon": "assetsimages/LogoAppETV.jpg"
+      "icon": "assetsimages/LogoAppETV.png"
     },
     "linux": {
-      "icon": "assetsimages/LogoAppETV.jpg"
+      "icon": "assetsimages/LogoAppETV.png"
     },
     "files": [
       "dist/**/*",

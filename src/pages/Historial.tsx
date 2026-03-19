@@ -483,59 +483,51 @@ export default function Historial() {
       </div>
     `;
 
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
+    const printContainer = document.createElement('div');
+    printContainer.id = 'print-container';
+    printContainer.innerHTML = htmlContent;
+    
+    const style = document.createElement('style');
+    style.id = 'print-style';
+    style.innerHTML = `
+      @media print {
+        #root { display: none !important; }
+        body { margin: 0; padding: 0; background-color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @page { margin: 0; size: legal portrait; }
+        #print-container {
+          display: block !important;
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+        #pdf-content { 
+          width: 215.9mm !important; 
+          height: 355.6mm !important;
+          padding: 10mm !important; 
+          margin: 0 auto !important;
+          box-sizing: border-box !important;
+          box-shadow: none !important;
+          display: flex !important;
+          flex-direction: column !important;
+        }
+      }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(printContainer);
 
-    const doc = iframe.contentWindow?.document;
-    if (doc) {
-      doc.open();
-      doc.write(`
-        <html>
-          <head>
-            <title>Imprimir Asignación</title>
-            <style>
-              body {
-                margin: 0;
-                padding: 0;
-                background-color: white;
-              }
-              @media print {
-                @page { margin: 0; size: legal portrait; }
-                body { margin: 0; padding: 0; background-color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; display: block; }
-                #pdf-content { 
-                  width: 215.9mm !important; 
-                  height: 355.6mm !important;
-                  padding: 10mm !important; 
-                  margin: 0 auto !important;
-                  box-sizing: border-box !important;
-                  box-shadow: none !important;
-                  display: flex !important;
-                  flex-direction: column !important;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            ${htmlContent}
-          </body>
-        </html>
-      `);
-      doc.close();
-
+    setTimeout(() => {
+      window.print();
       setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 1000);
+        if (document.body.contains(printContainer)) {
+          document.body.removeChild(printContainer);
+        }
+        if (document.head.contains(style)) {
+          document.head.removeChild(style);
+        }
       }, 1000);
-    }
+    }, 250);
   };
 
   return (

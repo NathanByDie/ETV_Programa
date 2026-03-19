@@ -1,11 +1,18 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import makeWASocket, { useMultiFileAuthState, DisconnectReason, Browsers, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs';
 import pino from 'pino';
+
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -26,7 +33,15 @@ async function connectToWhatsApp() {
     if (isConnecting) return;
     isConnecting = true;
     try {
-        const { state, saveCreds } = await useMultiFileAuthState(authInfoPath);
+        let authState;
+        try {
+            authState = await useMultiFileAuthState(authInfoPath);
+        } catch (e) {
+            console.error('Error reading auth state, clearing and retrying...', e);
+            fs.rmSync(authInfoPath, { recursive: true, force: true });
+            authState = await useMultiFileAuthState(authInfoPath);
+        }
+        const { state, saveCreds } = authState;
         const { version, isLatest } = await fetchLatestBaileysVersion();
         const logger = pino({ level: 'info' }, pino.destination(logPath));
         logger.info(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
@@ -40,68 +55,73 @@ async function connectToWhatsApp() {
         });
 
         sock.ev.on('connection.update', async (update: any) => {
-            logger.info({ update }, 'Connection update');
-            const { connection, lastDisconnect, qr } = update;
-            if (connection === 'connecting') {
-                qrCodeDataUrl = null;
-            }
-            if (qr) {
-                try {
-                    qrCodeDataUrl = await QRCode.toDataURL(qr);
+            try {
+                logger.info({ update }, 'Connection update');
+                const { connection, lastDisconnect, qr } = update;
+                if (connection === 'connecting') {
+                    qrCodeDataUrl = null;
+                }
+                if (qr) {
+                    try {
+                        qrCodeDataUrl = await QRCode.toDataURL(qr);
+                        lastError = null;
+                    } catch (err) {
+                        console.error("Error generating QR code", err);
+                        lastError = "Error generating QR code";
+                    }
+                }
+                if (connection === 'close') {
+                    isConnecting = false;
+                    isConnected = false;
+                    sock = null;
+                    const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+                    const errorMessage = lastDisconnect?.error?.message || String(lastDisconnect?.error) || '';
+                    const isLoggedOut = statusCode === DisconnectReason.loggedOut || errorMessage.includes('Intentional Logout') || errorMessage.includes('Unauthorized');
+                    const isBadSession = statusCode === DisconnectReason.badSession;
+                    const isQrTimeout = errorMessage.includes('QR refs attempts ended');
+                    const shouldReconnect = !isLoggedOut && !isBadSession && !isQrTimeout;
+                    
+                    console.log('connection closed due to ', lastDisconnect?.error, ', reconnecting ', shouldReconnect);
+                    
+                    if (isLoggedOut || isBadSession) {
+                        try {
+                            fs.rmSync(authInfoPath, { recursive: true, force: true });
+                        } catch (e) {
+                            console.error('Error removing auth info', e);
+                        }
+                        qrCodeDataUrl = null;
+                        lastError = isBadSession ? "Sesión inválida, por favor escanea el QR nuevamente." : null;
+                        connectToWhatsApp();
+                    } else if (isQrTimeout) {
+                        try {
+                            fs.rmSync(authInfoPath, { recursive: true, force: true });
+                        } catch (e) {
+                            console.error('Error removing auth info', e);
+                        }
+                        qrCodeDataUrl = null;
+                        lastError = "El código QR ha expirado. Haz clic en 'Generar nuevo QR' para intentar de nuevo.";
+                        // DO NOT automatically reconnect to avoid infinite loop
+                    } else if (statusCode === DisconnectReason.restartRequired) {
+                        console.log('Restart required, restarting immediately...');
+                        lastError = null; // Clear error so user doesn't see it
+                        connectToWhatsApp();
+                    } else if (shouldReconnect) {
+                        lastError = `Conexión cerrada: ${errorMessage || 'Error desconocido'}. Reconectando...`;
+                        setTimeout(connectToWhatsApp, 5000);
+                    }
+                } else if (connection === 'open') {
+                    console.log('opened connection');
+                    isConnecting = false;
+                    isConnected = true;
+                    qrCodeDataUrl = null;
                     lastError = null;
-                } catch (err) {
-                    console.error("Error generating QR code", err);
-                    lastError = "Error generating QR code";
                 }
-            }
-            if (connection === 'close') {
-                isConnecting = false;
-                isConnected = false;
-                const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-                const errorMessage = lastDisconnect?.error?.message || String(lastDisconnect?.error) || '';
-                const isLoggedOut = statusCode === DisconnectReason.loggedOut || errorMessage.includes('Intentional Logout') || errorMessage.includes('Unauthorized');
-                const isBadSession = statusCode === DisconnectReason.badSession;
-                const isQrTimeout = errorMessage.includes('QR refs attempts ended');
-                const shouldReconnect = !isLoggedOut && !isBadSession && !isQrTimeout;
-                
-                console.log('connection closed due to ', lastDisconnect?.error, ', reconnecting ', shouldReconnect);
-                
-                if (isLoggedOut || isBadSession) {
-                    try {
-                        fs.rmSync(authInfoPath, { recursive: true, force: true });
-                    } catch (e) {
-                        console.error('Error removing auth info', e);
-                    }
-                    qrCodeDataUrl = null;
-                    lastError = isBadSession ? "Sesión inválida, por favor escanea el QR nuevamente." : null;
-                    connectToWhatsApp();
-                } else if (isQrTimeout) {
-                    try {
-                        fs.rmSync(authInfoPath, { recursive: true, force: true });
-                    } catch (e) {
-                        console.error('Error removing auth info', e);
-                    }
-                    qrCodeDataUrl = null;
-                    lastError = "El código QR ha expirado. Haz clic en 'Generar nuevo QR' para intentar de nuevo.";
-                    // DO NOT automatically reconnect to avoid infinite loop
-                } else if (statusCode === DisconnectReason.restartRequired) {
-                    console.log('Restart required, restarting immediately...');
-                    lastError = null; // Clear error so user doesn't see it
-                    connectToWhatsApp();
-                } else if (shouldReconnect) {
-                    lastError = `Conexión cerrada: ${errorMessage || 'Error desconocido'}. Reconectando...`;
-                    setTimeout(connectToWhatsApp, 5000);
-                }
-            } else if (connection === 'open') {
-                console.log('opened connection');
-                isConnecting = false;
-                isConnected = true;
-                qrCodeDataUrl = null;
-                lastError = null;
+            } catch (err) {
+                console.error("Error in connection.update handler:", err);
             }
         });
 
-        sock.ev.on('creds.update', saveCreds);
+        sock.ev.on('creds.update', () => saveCreds().catch(err => console.error('Error saving creds:', err)));
     } catch (err: any) {
         isConnecting = false;
         console.error("Error in connectToWhatsApp:", err);
@@ -188,6 +208,7 @@ const currentDir = getDirname();
 
 async function startServer() {
     if (process.env.NODE_ENV !== "production") {
+        const { createServer: createViteServer } = await import("vite");
         const vite = await createViteServer({
             server: { middlewareMode: true },
             appType: "spa",
@@ -204,7 +225,13 @@ async function startServer() {
     }
 
     app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server running on http://localhost:${PORT}`);
+        console.log(`Server running on http://0.0.0.0:${PORT}`);
+    }).on('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+            console.error(`Port ${PORT} is already in use. Please close other instances.`);
+        } else {
+            console.error('Server error:', err);
+        }
     });
 }
 

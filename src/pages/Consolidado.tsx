@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Image } from "react-native";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar as CalendarIcon, Send, Smartphone, Save, History } from "lucide-react";
+import { Calendar as CalendarIcon, Send, Smartphone, Save, History, Printer } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
 import { useLoading } from "../contexts/LoadingContext";
@@ -40,8 +40,16 @@ interface ConsolidadoData {
   abateKgUtilizado: string;
 }
 
-const initialData: ConsolidadoData = {
-  fecha: new Date().toISOString().split('T')[0],
+const getLocalDateString = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getInitialData = (): ConsolidadoData => ({
+  fecha: getLocalDateString(),
   
   viviendasFumigadas: "",
   viviendasCerradasFumigacion: "",
@@ -67,10 +75,10 @@ const initialData: ConsolidadoData = {
   depositosInspeccionados: "",
   depositosPositivos: "",
   abateKgUtilizado: "",
-};
+});
 
 export default function Consolidado() {
-  const [data, setData] = useState<ConsolidadoData>(initialData);
+  const [data, setData] = useState<ConsolidadoData>(getInitialData());
   const [showHistory, setShowHistory] = useState(false);
   const [whatsappStatus, setWhatsappStatus] = useState<{ isConnected: boolean; qrCode: string | null; error?: string | null }>({ isConnected: false, qrCode: null });
   const [showQR, setShowQR] = useState(false);
@@ -89,6 +97,7 @@ export default function Consolidado() {
     const checkWhatsappStatus = async () => {
       try {
         const res = await fetch(`/api/whatsapp/status?t=${Date.now()}`);
+        if (!res.ok) throw new Error('Network response was not ok');
         const statusData = await res.json();
         setWhatsappStatus(statusData);
         if (statusData.isConnected) {
@@ -96,6 +105,11 @@ export default function Consolidado() {
         }
       } catch (error) {
         console.error("Error fetching WhatsApp status:", error);
+        setWhatsappStatus(prev => ({
+          ...prev,
+          isConnected: false,
+          error: "No se pudo conectar al servidor. Reintentando..."
+        }));
       }
     };
 
@@ -133,6 +147,59 @@ export default function Consolidado() {
 
   const handleChange = (field: keyof ConsolidadoData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePrint = () => {
+    if (Platform.OS === 'web') {
+      const element = document.getElementById('consolidado-receipt');
+      if (element) {
+        const printContainer = document.createElement('div');
+        printContainer.id = 'print-container';
+        printContainer.innerHTML = element.innerHTML;
+        
+        const style = document.createElement('style');
+        style.id = 'print-style';
+        style.innerHTML = `
+          @media print {
+            #root { display: none !important; }
+            body { background-color: white !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { margin: 0.5cm; }
+            #print-container {
+              display: block !important;
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
+              font-family: Arial, sans-serif;
+              padding: 20px;
+            }
+            #print-container table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            #print-container th, #print-container td { border: 1px solid #000; padding: 8px; text-align: left; }
+            #print-container th { background-color: #f3f4f6; text-align: center; }
+            #print-container h2 { text-align: center; }
+          }
+        `;
+        
+        document.head.appendChild(style);
+        document.body.appendChild(printContainer);
+        
+        setTimeout(() => {
+          window.print();
+          setTimeout(() => {
+            if (document.body.contains(printContainer)) {
+              document.body.removeChild(printContainer);
+            }
+            if (document.head.contains(style)) {
+              document.head.removeChild(style);
+            }
+          }, 1000);
+        }, 100);
+      } else {
+        alert("No se encontró el elemento a imprimir.");
+      }
+    } else {
+      alert("La impresión solo está disponible en la versión web/escritorio.");
+    }
   };
 
   const handleSubmit = async () => {
@@ -203,7 +270,7 @@ export default function Consolidado() {
         alert("Consolidado guardado exitosamente" + (!whatsappStatus.isConnected ? " (WhatsApp no conectado)" : " (Sin destinatario)"));
       }
       
-      setData(initialData); // Reset form
+      setData(getInitialData()); // Reset form
     } catch (error) {
       console.error("Error:", error);
       alert("Error al procesar la solicitud");
@@ -355,6 +422,13 @@ export default function Consolidado() {
               </View>
             </View>
           )}
+          <TouchableOpacity
+            style={tw`bg-gray-600 px-4 py-2.5 rounded-lg flex-row items-center justify-center h-[42px] mr-2`}
+            onPress={handlePrint}
+          >
+            <Printer size={20} color="#fff" style={tw`mr-2`} />
+            <Text style={tw`text-white font-medium`}>Imprimir</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={tw`bg-blue-600 px-6 py-2.5 rounded-lg flex-row items-center justify-center h-[42px] ${!whatsappStatus.isConnected ? 'flex-1' : ''}`}
             onPress={handleSubmit}
