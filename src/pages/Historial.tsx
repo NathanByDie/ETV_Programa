@@ -17,6 +17,7 @@ interface Asignacion {
   fecha: string; // ISO string from API
   mapImage?: string;
   trabajoNumero?: number;
+  croquisId?: string;
 }
 
 export default function Historial() {
@@ -98,6 +99,31 @@ export default function Historial() {
       if (intersect) inside = !inside;
     }
     return inside;
+  };
+
+  const getManzanaLabel = (manzanaId: string, croquisId?: string) => {
+    if (!manzanaId.startsWith('manzana-')) return manzanaId;
+    
+    // If we have a specific croquisId, look there first
+    if (croquisId) {
+      const croquis = allCroquis.find(c => c.id === croquisId);
+      if (croquis) {
+        const manzana = croquis.elements.find((el: any) => el.id === manzanaId);
+        if (manzana && manzana.data && (manzana.data.blockNumber || manzana.data.label)) {
+          return manzana.data.blockNumber || manzana.data.label;
+        }
+      }
+    }
+    
+    // Otherwise search in all croquis
+    for (const croquis of allCroquis) {
+      const manzana = croquis.elements?.find((el: any) => el.id === manzanaId);
+      if (manzana && manzana.data && (manzana.data.blockNumber || manzana.data.label)) {
+        return manzana.data.blockNumber || manzana.data.label;
+      }
+    }
+    
+    return manzanaId;
   };
 
   const getReferenceForManzana = (manzana: any, croquisElements: any[]) => {
@@ -191,7 +217,7 @@ export default function Historial() {
       }
       ctx.closePath();
       
-      const isSelected = selectedManzanas.includes(m.data.blockNumber || "S/N");
+      const isSelected = selectedManzanas.includes(m.data.blockNumber || "S/N") || selectedManzanas.includes(m.id);
       ctx.fillStyle = isSelected ? '#1e3a8a' : 'rgba(209, 213, 219, 0.5)';
       ctx.fill();
       ctx.strokeStyle = '#1f2937';
@@ -247,7 +273,7 @@ export default function Historial() {
     }
 
     const selectedManzanasData = availableManzanas.filter(m => 
-      item.manzanas.includes(m.data.blockNumber || "S/N")
+      item.manzanas.includes(m.data.blockNumber || "S/N") || item.manzanas.includes(m.id)
     );
 
     let mapImage = item.mapImage || '';
@@ -625,7 +651,7 @@ export default function Historial() {
                     <View style={tw`flex-row flex-wrap gap-1`}>
                       {item.manzanas.map((m, idx) => (
                         <View key={idx} style={tw`bg-white border border-gray-200 px-2 py-0.5 rounded`}>
-                          <Text style={tw`text-xs text-gray-600`}>{m}</Text>
+                          <Text style={tw`text-xs text-gray-600`}>{getManzanaLabel(m, item.croquisId)}</Text>
                         </View>
                       ))}
                     </View>

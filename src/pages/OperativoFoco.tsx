@@ -481,7 +481,7 @@ export default function OperativoFoco() {
           tipo: "fumigacion", // Foco is usually fumigation
           lugarType: "barrio",
           lugarNombre: `Foco: ${barrioName}`,
-          manzanas: manzanasList.map(m => m.id),
+          manzanas: manzanasList.map(m => m.data.blockNumber || m.data.label || m.id),
           brigadistaId: "N/A",
           brigadistaNombre: "N/A",
           fecha: new Date().toISOString(),

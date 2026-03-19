@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, Image } from "react-native";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, ClipboardList, Map, History, Target } from "lucide-react";
+import { Home, Users, ClipboardList, Map, History, Target, FileSpreadsheet } from "lucide-react";
 import tw from "twrnc";
 import { useUnsavedChanges } from "../contexts/UnsavedChangesContext";
 
@@ -17,6 +17,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { path: "/foco", icon: Target, label: "Foco" },
     { path: "/historial", icon: History, label: "Historial" },
     { path: "/croquis", icon: Map, label: "Croquis" },
+    { path: "/consolidado", icon: FileSpreadsheet, label: "Consolidado" },
   ];
 
   const handleNavigation = (path: string) => {

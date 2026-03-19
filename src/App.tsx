@@ -14,6 +14,7 @@ import Asignacion from "./pages/Asignacion";
 import OperativoFoco from "./pages/OperativoFoco";
 import Croquis from "./pages/Croquis";
 import Historial from "./pages/Historial";
+import Consolidado from "./pages/Consolidado";
 import { View, Text, TouchableOpacity } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import tw from "twrnc";
@@ -92,6 +93,7 @@ export default function App() {
                 <Route path="/foco" element={<OperativoFoco />} />
                 <Route path="/croquis" element={<Croquis />} />
                 <Route path="/historial" element={<Historial />} />
+                <Route path="/consolidado" element={<Consolidado />} />
               </Routes>
             </Layout>
           </Router>

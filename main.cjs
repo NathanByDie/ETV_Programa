@@ -14,7 +14,15 @@ function createWindow() {
 
   // Si la app está empaquetada (producción), carga los archivos locales
   if (app.isPackaged) {
-    win.loadFile(path.join(__dirname, 'dist', 'index.html'));
+    // Iniciar el servidor Express empaquetado
+    process.env.NODE_ENV = 'production';
+    process.env.USER_DATA_PATH = app.getPath('userData');
+    require(path.join(__dirname, 'dist', 'server.cjs'));
+    
+    // Esperar un momento a que el servidor inicie y cargar la URL local
+    setTimeout(() => {
+      win.loadURL('http://localhost:3000');
+    }, 1000);
   } else {
     // En desarrollo, carga el servidor local de Vite
     win.loadURL('http://localhost:3000');

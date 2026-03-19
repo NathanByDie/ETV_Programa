@@ -96,6 +96,16 @@ export const api = {
           if (!targetId.startsWith('local-')) {
             await updateDoc(doc(db, "croquis", targetId), { nombre: action.payload.nombre, updatedAt: new Date().toISOString() });
           }
+        } else if (action.type === 'addConsolidado') {
+          const { id, ...payload } = action.payload;
+          const docRef = await addDoc(collection(db, "consolidados"), payload);
+          if (id && id.startsWith('local-')) idMap.set(id, docRef.id);
+        } else if (action.type === 'deleteConsolidado') {
+          let targetId = action.payload.id;
+          if (targetId.startsWith('local-')) targetId = idMap.get(targetId) || targetId;
+          if (!targetId.startsWith('local-')) {
+            await deleteDoc(doc(db, "consolidados", targetId));
+          }
         }
       } catch (e) {
         console.error('Error syncing action', action, e);
@@ -379,6 +389,67 @@ export const api = {
       }
       addToSyncQueue({ type: 'renameCroquis', payload: { id, nombre } });
       return false;
+    }
+  },
+
+  // Consolidados
+  getConsolidados: async () => {
+    try {
+      if (!isOnline()) throw new Error('Offline');
+      const q = query(collection(db, "consolidados"), orderBy("fecha", "desc"));
+      const snapshot = await getDocsWithTimeout(q);
+      const data = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      syncLocal('consolidados', data);
+      return data;
+    } catch (e) {
+      console.warn('Firebase error, using local storage', e);
+      return getLocal('consolidados');
+    }
+  },
+  addConsolidado: async (payload: any) => {
+    const dataWithTimestamp = { ...payload, createdAt: new Date().toISOString() };
+    if (!isOnline()) {
+      const id = `local-${Date.now()}`;
+      const localData = { id, ...dataWithTimestamp };
+      const current = getLocal('consolidados');
+      syncLocal('consolidados', [localData, ...current]);
+      addToSyncQueue({ type: 'addConsolidado', payload: localData });
+      return localData;
+    }
+    try {
+      const docRef = await addDoc(collection(db, "consolidados"), dataWithTimestamp);
+      const data = { id: docRef.id, ...dataWithTimestamp };
+      const current = getLocal('consolidados');
+      syncLocal('consolidados', [data, ...current]);
+      return data;
+    } catch (e) {
+      console.warn('Firebase error, saving locally', e);
+      const id = `local-${Date.now()}`;
+      const localData = { id, ...dataWithTimestamp };
+      const current = getLocal('consolidados');
+      syncLocal('consolidados', [localData, ...current]);
+      addToSyncQueue({ type: 'addConsolidado', payload: localData });
+      return localData;
+    }
+  },
+  deleteConsolidado: async (id: string) => {
+    if (!isOnline()) {
+      const current = getLocal('consolidados');
+      syncLocal('consolidados', current.filter((c: any) => c.id !== id));
+      addToSyncQueue({ type: 'deleteConsolidado', payload: { id } });
+      return true;
+    }
+    try {
+      await deleteDoc(doc(db, "consolidados", id));
+      const current = getLocal('consolidados');
+      syncLocal('consolidados', current.filter((c: any) => c.id !== id));
+      return true;
+    } catch (e) {
+      console.warn('Firebase error, deleting locally', e);
+      const current = getLocal('consolidados');
+      syncLocal('consolidados', current.filter((c: any) => c.id !== id));
+      addToSyncQueue({ type: 'deleteConsolidado', payload: { id } });
+      return true;
     }
   }
 };
