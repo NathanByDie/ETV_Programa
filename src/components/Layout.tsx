@@ -5,6 +5,7 @@ import { Home, Users, ClipboardList, Map, History, Target, FileSpreadsheet } fro
 import tw from "twrnc";
 import { useUnsavedChanges } from "../contexts/UnsavedChangesContext";
 import LogoMinsa from "../../assetsimages/MINSAlogoEncabezado.png";
+import LogoApp from "../../assetsimages/LogoAppETV.png";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -35,14 +36,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <View style={tw`flex-1 bg-gray-50 overflow-hidden flex-col`}>
       {/* Header */}
       <View style={tw`bg-[#dcf0fa] pt-12 pb-4 px-4 z-20 flex-row items-center justify-between shrink-0`}>
-        <View style={tw`bg- rounded p-1 relative`}>
-          <Image 
-            source={LogoMinsa} 
-            style={tw`w-42 h-20`}
-            resizeMode="contain"
-          />
+        <View style={tw`flex-row items-center gap-4`}>
+          <View style={tw`bg-white rounded p-1 shadow-sm`}>
+            <Image 
+              source={LogoApp as any} 
+              style={tw`w-12 h-12`}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={tw`bg-transparent`}>
+            <Image 
+              source={LogoMinsa as any} 
+              style={tw`w-42 h-12`}
+              resizeMode="contain"
+            />
+          </View>
         </View>
-        <Text style={tw`text-xl font-bold text-blue-900`}>Gestor</Text>
+        <Text style={tw`text-xl font-bold text-blue-900`}>Gestor E.T.V.</Text>
       </View>
       
       {/* Top Navigation - Fixed under header */}

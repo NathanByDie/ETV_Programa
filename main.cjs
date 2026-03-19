@@ -7,7 +7,7 @@ function createWindow() {
     width: 1280,
     height: 800,
     autoHideMenuBar: true,
-    icon: path.join(__dirname, 'assetsimages', 'LogoAppETV.png'),
+    icon: path.join(__dirname, 'assetsimages', process.platform === 'win32' ? 'LogoAppETV.ico' : (process.platform === 'darwin' ? 'LogoAppETV.icns' : 'LogoAppETV.png')),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -56,7 +56,7 @@ function createWindow() {
       });
     }
   } else {
-    win.webContents.openDevTools();
+    // win.webContents.openDevTools();
     checkServerAndLoad('http://127.0.0.1:3000');
   }
 }
