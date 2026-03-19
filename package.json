@@ -3,7 +3,7 @@
   "description": "Programa ETV Consolidado",
   "author": "ETV",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0",
   "type": "module",
   "main": "main.cjs",
   "scripts": {
