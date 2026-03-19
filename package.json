@@ -84,14 +84,17 @@
       "output": "release"
     },
     "win": {
+      "icon": "assetsimages/LogoAppETV.png",
       "target": [
         "nsis",
         "portable"
       ]
     },
     "mac": {
+      "icon": "assetsimages/LogoAppETV.png"
     },
     "linux": {
+      "icon": "assetsimages/LogoAppETV.png"
     },
     "files": [
       "dist/**/*",

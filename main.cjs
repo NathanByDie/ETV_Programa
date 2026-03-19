@@ -7,6 +7,7 @@ function createWindow() {
     width: 1280,
     height: 800,
     autoHideMenuBar: true,
+    icon: path.join(__dirname, 'assetsimages', 'LogoAppETV.png'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -19,7 +20,7 @@ function createWindow() {
       console.log('Servidor detectado, cargando URL...');
       win.loadURL(url).catch(err => {
         console.error('Error al cargar la URL del servidor:', err);
-        win.webContents.openDevTools();
+        if (!app.isPackaged) win.webContents.openDevTools();
       });
     }).on('error', () => {
       if (attempts < 20) {
@@ -31,8 +32,8 @@ function createWindow() {
         console.log('Cargando fallback:', fallbackPath);
         win.loadFile(fallbackPath).catch(e => {
           console.error('Error al cargar index.html como respaldo:', e);
+          if (!app.isPackaged) win.webContents.openDevTools();
         });
-        win.webContents.openDevTools();
       }
     });
   };
@@ -53,9 +54,9 @@ function createWindow() {
       win.loadFile(fallbackPath).catch(e => {
         console.error('Error al cargar index.html como respaldo:', e);
       });
-      win.webContents.openDevTools();
     }
   } else {
+    win.webContents.openDevTools();
     checkServerAndLoad('http://127.0.0.1:3000');
   }
 }

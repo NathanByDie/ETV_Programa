@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Users, ClipboardList, Map, History, Target, FileSpreadsheet } from "lucide-react";
 import tw from "twrnc";
 import { useUnsavedChanges } from "../contexts/UnsavedChangesContext";
+import LogoMinsa from "../../assetsimages/MINSAlogoEncabezado.png";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -34,9 +35,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <View style={tw`flex-1 bg-gray-50 overflow-hidden flex-col`}>
       {/* Header */}
       <View style={tw`bg-[#dcf0fa] pt-12 pb-4 px-4 z-20 flex-row items-center justify-between shrink-0`}>
-        <View style={tw`bg- rounded p-1`}>
+        <View style={tw`bg- rounded p-1 relative`}>
           <Image 
-            source={{ uri: 'https://www.minsa.gob.ni/sites/default/files/Logo-01.png' }} 
+            source={LogoMinsa} 
             style={tw`w-42 h-20`}
             resizeMode="contain"
           />
