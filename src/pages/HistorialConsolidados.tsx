@@ -293,6 +293,8 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
                 {renderRow("Viviendas Cerradas", selectedItem.viviendasCerradasFumigacion)}
                 {renderRow("Viviendas Renuentes", selectedItem.viviendasRenuentesFumigacion)}
                 {renderRow("Viviendas Deshabitada", selectedItem.viviendasDeshabitadaFumigacion)}
+                {renderRow("Viviendas Recuperadas", selectedItem.viviendasRecuperadasFumigacion)}
+                {renderRow("Escuelas Visitadas", selectedItem.escuelasVisitadasFumigacion)}
                 {renderRow("Manzanas Fumigadas", selectedItem.manzanasFumigadas)}
                 {renderRow("Habitantes Protegidos", selectedItem.habitantesProtegidos)}
                 {renderRow("Puntos Claves Fumigados", selectedItem.puntosClavesFumigados)}
@@ -312,6 +314,8 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
                 {renderRow("Viviendas Cerradas", selectedItem.viviendasCerradasAplicacion)}
                 {renderRow("Viviendas Desabitadas", selectedItem.viviendasDeshabitadasAplicacion)}
                 {renderRow("Viviendas Renuentes", selectedItem.viviendasRenuentesAplicacion)}
+                {renderRow("Viviendas Recuperadas", selectedItem.viviendasRecuperadas)}
+                {renderRow("Escuelas Visitadas", selectedItem.escuelasVisitadas)}
                 {renderRow("Total de Viviendas Visitadas", selectedItem.totalViviendasVisitadas)}
                 {renderRow("Puntos clave Tratados", selectedItem.puntosClaveTratados)}
               </View>
@@ -410,6 +414,22 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
                     <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{selectedItem.cipermetrinaGastada || '0'}</td>
                     <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}>Puntos clave Tratados</td>
                     <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{selectedItem.puntosClaveTratados || '0'}</td>
+                    <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}></td>
+                    <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}></td>
+                  </tr>
+                  <tr>
+                    <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}>Viviendas Recuperadas</td>
+                    <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{selectedItem.viviendasRecuperadasFumigacion || '0'}</td>
+                    <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}>Viviendas Recuperadas</td>
+                    <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{selectedItem.viviendasRecuperadas || '0'}</td>
+                    <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}></td>
+                    <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}></td>
+                  </tr>
+                  <tr>
+                    <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}>Escuelas Visitadas</td>
+                    <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{selectedItem.escuelasVisitadasFumigacion || '0'}</td>
+                    <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}>Escuelas Visitadas</td>
+                    <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{selectedItem.escuelasVisitadas || '0'}</td>
                     <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}></td>
                     <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}></td>
                   </tr>

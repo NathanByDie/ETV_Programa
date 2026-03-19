@@ -16,6 +16,8 @@ interface ConsolidadoData {
   viviendasCerradasFumigacion: string;
   viviendasRenuentesFumigacion: string;
   viviendasDeshabitadaFumigacion: string;
+  viviendasRecuperadasFumigacion: string;
+  escuelasVisitadasFumigacion: string;
   manzanasFumigadas: string;
   habitantesProtegidos: string;
   puntosClavesFumigados: string;
@@ -28,6 +30,8 @@ interface ConsolidadoData {
   viviendasCerradasAplicacion: string;
   viviendasDeshabitadasAplicacion: string;
   viviendasRenuentesAplicacion: string;
+  viviendasRecuperadas: string;
+  escuelasVisitadas: string;
   totalViviendasVisitadas: string;
   puntosClaveTratados: string;
 
@@ -55,6 +59,8 @@ const getInitialData = (): ConsolidadoData => ({
   viviendasCerradasFumigacion: "",
   viviendasRenuentesFumigacion: "",
   viviendasDeshabitadaFumigacion: "",
+  viviendasRecuperadasFumigacion: "",
+  escuelasVisitadasFumigacion: "",
   manzanasFumigadas: "",
   habitantesProtegidos: "",
   puntosClavesFumigados: "",
@@ -66,6 +72,8 @@ const getInitialData = (): ConsolidadoData => ({
   viviendasCerradasAplicacion: "",
   viviendasDeshabitadasAplicacion: "",
   viviendasRenuentesAplicacion: "",
+  viviendasRecuperadas: "",
+  escuelasVisitadas: "",
   totalViviendasVisitadas: "",
   puntosClaveTratados: "",
 
@@ -459,6 +467,8 @@ export default function Consolidado() {
             {renderInput("Viviendas Cerradas", "viviendasCerradasFumigacion")}
             {renderInput("Viviendas Renuentes", "viviendasRenuentesFumigacion")}
             {renderInput("Viviendas Deshabitada", "viviendasDeshabitadaFumigacion")}
+            {renderInput("Viviendas Recuperadas", "viviendasRecuperadasFumigacion")}
+            {renderInput("Escuelas Visitadas", "escuelasVisitadasFumigacion")}
             {renderInput("Manzanas Fumigadas", "manzanasFumigadas")}
             {renderInput("Habitantes Protegidos", "habitantesProtegidos")}
             {renderInput("Puntos Claves Fumigados", "puntosClavesFumigados")}
@@ -478,6 +488,8 @@ export default function Consolidado() {
             {renderInput("Viviendas Cerradas", "viviendasCerradasAplicacion")}
             {renderInput("Viviendas Desabitadas", "viviendasDeshabitadasAplicacion")}
             {renderInput("Viviendas Renuentes", "viviendasRenuentesAplicacion")}
+            {renderInput("Viviendas Recuperadas", "viviendasRecuperadas")}
+            {renderInput("Escuelas Visitadas", "escuelasVisitadas")}
             {renderInput("Total de Viviendas Visitadas", "totalViviendasVisitadas")}
             {renderInput("Puntos clave Tratados", "puntosClaveTratados")}
           </View>
@@ -578,6 +590,22 @@ export default function Consolidado() {
                 <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{data.cipermetrinaGastada || '0'}</td>
                 <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}>Puntos clave Tratados</td>
                 <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{data.puntosClaveTratados || '0'}</td>
+                <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}></td>
+                <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}></td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}>Viviendas Recuperadas</td>
+                <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{data.viviendasRecuperadasFumigacion || '0'}</td>
+                <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}>Viviendas Recuperadas</td>
+                <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{data.viviendasRecuperadas || '0'}</td>
+                <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}></td>
+                <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}></td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}>Escuelas Visitadas</td>
+                <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{data.escuelasVisitadasFumigacion || '0'}</td>
+                <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}>Escuelas Visitadas</td>
+                <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{data.escuelasVisitadas || '0'}</td>
                 <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold' }}></td>
                 <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}></td>
               </tr>
