@@ -310,7 +310,7 @@ export default function Consolidado() {
   return (
     <View style={tw`flex-1 bg-gray-50`}>
       <ScrollView style={tw`flex-1`} contentContainerStyle={tw`p-6`}>
-        <View style={tw`flex-row justify-between items-center mb-6`}>
+        <View style={tw`flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6`}>
           <Text style={tw`text-2xl font-bold text-gray-900`}>Consolidado Estadístico</Text>
           <TouchableOpacity onPress={() => setShowHistory(true)} style={tw`bg-blue-100 px-4 py-2 rounded-lg flex-row items-center`}>
             <History size={20} color="#0284c7" style={tw`mr-2`} />
@@ -319,7 +319,7 @@ export default function Consolidado() {
         </View>
 
       <View style={tw`bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6`}>
-        <View style={tw`flex-row gap-6`}>
+        <View style={tw`flex-col sm:flex-row gap-6`}>
           <View style={tw`flex-1 max-w-sm`}>
             <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Fecha</Text>
             <View style={tw`flex-row items-center border border-gray-300 rounded-lg px-3 py-2 bg-gray-50`}>
@@ -406,7 +406,7 @@ export default function Consolidado() {
           </View>
         )}
 
-        <View style={tw`flex-row gap-4 items-end`}>
+        <View style={tw`flex-col sm:flex-row gap-4 items-stretch sm:items-end`}>
           {whatsappStatus.isConnected && (
             <View style={tw`flex-1`}>
               <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Número de Destinatario</Text>
@@ -430,33 +430,35 @@ export default function Consolidado() {
               </View>
             </View>
           )}
-          <TouchableOpacity
-            style={tw`bg-gray-600 px-4 py-2.5 rounded-lg flex-row items-center justify-center h-[42px] mr-2`}
-            onPress={handlePrint}
-          >
-            <Printer size={20} color="#fff" style={tw`mr-2`} />
-            <Text style={tw`text-white font-medium`}>Imprimir</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={tw`bg-blue-600 px-6 py-2.5 rounded-lg flex-row items-center justify-center h-[42px] ${!whatsappStatus.isConnected ? 'flex-1' : ''}`}
-            onPress={handleSubmit}
-          >
-            {whatsappStatus.isConnected ? (
-              <>
-                <Send size={20} color="#fff" style={tw`mr-2`} />
-                <Text style={tw`text-white font-medium`}>Enviar</Text>
-              </>
-            ) : (
-              <>
-                <Save size={20} color="#fff" style={tw`mr-2`} />
-                <Text style={tw`text-white font-medium`}>Guardar Consolidado</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <View style={tw`flex-row gap-2 w-full sm:w-auto`}>
+            <TouchableOpacity
+              style={tw`bg-gray-600 px-4 py-2.5 rounded-lg flex-row items-center justify-center h-[42px] flex-1 sm:flex-none`}
+              onPress={handlePrint}
+            >
+              <Printer size={20} color="#fff" style={tw`mr-2`} />
+              <Text style={tw`text-white font-medium`}>Imprimir</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={tw`bg-blue-600 px-6 py-2.5 rounded-lg flex-row items-center justify-center h-[42px] flex-1 sm:flex-none ${!whatsappStatus.isConnected ? 'w-full' : ''}`}
+              onPress={handleSubmit}
+            >
+              {whatsappStatus.isConnected ? (
+                <>
+                  <Send size={20} color="#fff" style={tw`mr-2`} />
+                  <Text style={tw`text-white font-medium`}>Enviar</Text>
+                </>
+              ) : (
+                <>
+                  <Save size={20} color="#fff" style={tw`mr-2`} />
+                  <Text style={tw`text-white font-medium`}>Guardar</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
-      <View style={tw`flex-row gap-6`}>
+      <View style={tw`flex-col lg:flex-row gap-6`}>
         {/* Column 1: FUMIGACION */}
         <View style={tw`flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden`}>
           <View style={tw`bg-blue-50 px-4 py-3 border-b border-blue-100`}>
@@ -520,7 +522,8 @@ export default function Consolidado() {
           <div style={{ marginBottom: '20px', fontSize: '14px' }}>
             <p><strong>Fecha:</strong> {data.fecha ? format(new Date(data.fecha), "dd 'de' MMMM, yyyy", { locale: es }) : ''}</p>
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '600px' }}>
             <thead>
               <tr>
                 <th colSpan={2} style={{ border: '1px solid #000', padding: '8px', backgroundColor: '#f3f4f6', textAlign: 'center', fontWeight: 'bold' }}>ACTIVIDAD DE FUMIGACION</th>
@@ -611,6 +614,7 @@ export default function Consolidado() {
               </tr>
             </tbody>
           </table>
+          </div>
           </div>
         </div>
       )}

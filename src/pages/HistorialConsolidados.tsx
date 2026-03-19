@@ -237,7 +237,7 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
 
         <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-8`}>
           {/* WhatsApp Resend Section */}
-          <View style={tw`bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 flex-row items-center justify-between`}>
+          <View style={tw`bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 flex-col sm:flex-row items-start sm:items-center justify-between gap-4`}>
             <View style={tw`flex-1 mr-4`}>
               <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Reenviar por WhatsApp</Text>
               {whatsappStatus.isConnected ? (
@@ -263,16 +263,16 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
                 <Text style={tw`text-sm text-red-500`}>WhatsApp no conectado. Ve a la pestaña principal para vincularlo.</Text>
               )}
             </View>
-            <View style={tw`flex-row`}>
+            <View style={tw`flex-row gap-2 w-full sm:w-auto justify-end`}>
               <TouchableOpacity
-                style={tw`bg-gray-600 px-4 py-2 rounded-lg flex-row items-center justify-center h-[40px] mr-2`}
+                style={tw`bg-gray-600 px-4 py-2 rounded-lg flex-row items-center justify-center h-[40px] flex-1 sm:flex-none`}
                 onPress={handlePrint}
               >
                 <Printer size={18} color="#fff" style={tw`mr-2`} />
                 <Text style={tw`text-white font-medium`}>Imprimir</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={tw`bg-green-600 px-4 py-2 rounded-lg flex-row items-center justify-center h-[40px] ${!whatsappStatus.isConnected ? 'opacity-50' : ''}`}
+                style={tw`bg-green-600 px-4 py-2 rounded-lg flex-row items-center justify-center h-[40px] flex-1 sm:flex-none ${!whatsappStatus.isConnected ? 'opacity-50' : ''}`}
                 onPress={handleResend}
                 disabled={!whatsappStatus.isConnected}
               >
@@ -344,7 +344,8 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
               <div style={{ marginBottom: '20px', fontSize: '14px' }}>
                 <p><strong>Fecha:</strong> {selectedItem.fecha ? format(new Date(selectedItem.fecha), "dd 'de' MMMM, yyyy", { locale: es }) : ''}</p>
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+              <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '600px' }}>
                 <thead>
                   <tr>
                     <th colSpan={2} style={{ border: '1px solid #000', padding: '8px', backgroundColor: '#f3f4f6', textAlign: 'center', fontWeight: 'bold' }}>ACTIVIDAD DE FUMIGACION</th>
@@ -435,6 +436,7 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
                   </tr>
                 </tbody>
               </table>
+              </div>
               </div>
             </div>
           )}
