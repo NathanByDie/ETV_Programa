@@ -4,8 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Users, ClipboardList, Map, History, Target, FileSpreadsheet } from "lucide-react";
 import tw from "twrnc";
 import { useUnsavedChanges } from "../contexts/UnsavedChangesContext";
-import LogoMinsa from "../../assets/images/MINSAlogoEncabezado.png";
-import LogoApp from "../../assets/images/LogoAppETV.png";
+import LogoMinsa from "@/assets/images/MINSAlogoEncabezado.png";
+import LogoApp from "@/assets/images/LogoAppETV.png";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();

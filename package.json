@@ -84,23 +84,23 @@
       "output": "release"
     },
     "win": {
-      "icon": "assets/images/LogoAppETV.ico",
+      "icon": "src/assets/images/LogoAppETV.ico",
       "target": [
         "nsis",
         "portable"
       ]
     },
     "mac": {
-      "icon": "assets/images/LogoAppETV.icns"
+      "icon": "src/assets/images/LogoAppETV.icns"
     },
     "linux": {
-      "icon": "assets/images/LogoAppETV.png"
+      "icon": "src/assets/images/LogoAppETV.png"
     },
     "files": [
       "dist/**/*",
       "main.cjs",
       "package.json",
-      "assets/**/*"
+      "src/assets/**/*"
     ]
   }
 }

@@ -11,7 +11,7 @@ function createWindow() {
     width: 1280,
     height: 800,
     autoHideMenuBar: true,
-    icon: path.join(__dirname, 'assets', 'images', process.platform === 'win32' ? 'LogoAppETV.ico' : (process.platform === 'darwin' ? 'LogoAppETV.icns' : 'LogoAppETV.png')),
+    icon: path.join(__dirname, 'src', 'assets', 'images', process.platform === 'win32' ? 'LogoAppETV.ico' : (process.platform === 'darwin' ? 'LogoAppETV.icns' : 'LogoAppETV.png')),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false

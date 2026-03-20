@@ -16,7 +16,7 @@ export default defineConfig(({mode}) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, 'src'),
         'react-native': 'react-native-web',
         'react-native/Libraries/Utilities/codegenNativeComponent': 'react-native-web/dist/exports/View',
         'react-native/Libraries/Image/AssetSourceResolver': 'react-native-web/dist/modules/AssetSourceResolver',
