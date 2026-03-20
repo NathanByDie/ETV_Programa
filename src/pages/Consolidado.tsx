@@ -340,9 +340,9 @@ export default function Consolidado() {
           </TouchableOpacity>
         </View>
 
-      <View style={tw`bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6`}>
-        <View style={tw`flex-col sm:flex-row gap-6`}>
-          <View style={tw`flex-1 max-w-sm`}>
+      <View style={tw`flex-col md:flex-row gap-6 mb-6`}>
+        <View style={tw`flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-6`}>
+          <View style={tw`w-full`}>
             <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Fecha</Text>
             <View style={tw`flex-row items-center border border-gray-300 rounded-lg px-3 py-2 bg-gray-50`}>
               <CalendarIcon size={20} color="#6b7280" style={tw`mr-2`} />
@@ -370,6 +370,10 @@ export default function Consolidado() {
               )}
             </View>
           </View>
+        </View>
+
+        <View style={tw`flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-6 hidden md:flex`}>
+          {/* Espacio reservado para futura información o simplemente para mantener el diseño de dos columnas */}
         </View>
       </View>
 
