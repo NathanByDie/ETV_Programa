@@ -86,10 +86,11 @@ const getInitialData = (): ConsolidadoData => ({
 });
 
 const getApiUrl = (path: string) => {
-  if (window.location.protocol === 'file:' || (typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron'))) {
-    return `http://localhost:3000${path}`;
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    return `${window.location.origin}${path}`;
   }
-  return path;
+  // Fallback for file:// protocol (though API calls will likely fail due to CORS)
+  return `http://localhost:3000${path}`;
 };
 
 export default function Consolidado() {
@@ -340,7 +341,8 @@ export default function Consolidado() {
           </TouchableOpacity>
         </View>
 
-      <View style={tw`flex-col md:flex-row gap-6 mb-6`}>
+      {/* Contenedor principal de Fecha y WhatsApp (Forzado a 2 columnas siempre) */}
+      <View style={tw`flex-row gap-4 mb-6`}>
         <View style={tw`flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-6`}>
           <View style={tw`w-full`}>
             <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Fecha</Text>
@@ -372,119 +374,117 @@ export default function Consolidado() {
           </View>
         </View>
 
-        <View style={tw`flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-6 hidden md:flex`}>
-          {/* Espacio reservado para futura información o simplemente para mantener el diseño de dos columnas */}
-        </View>
-      </View>
-
-      <View style={tw`bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6`}>
-        <View style={tw`flex-row justify-between items-center mb-4`}>
-          <Text style={tw`text-lg font-bold text-gray-900 flex-row items-center`}>
-            <Smartphone size={20} color="#10b981" style={tw`mr-2`} />
-            Envío por WhatsApp
-          </Text>
-          <View style={tw`flex-row items-center`}>
-            <View style={tw`w-3 h-3 rounded-full mr-2 ${whatsappStatus.isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-            <Text style={tw`text-sm text-gray-600 font-medium mr-4`}>
-              {whatsappStatus.isConnected ? 'Conectado' : 'Desconectado'}
+        <View style={tw`flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-6`}>
+          <View style={tw`flex-row flex-wrap justify-between items-center gap-2 mb-4`}>
+            <Text style={tw`text-lg font-bold text-gray-900 flex-row items-center`}>
+              <Smartphone size={20} color="#10b981" style={tw`mr-2`} />
+              Envío por WhatsApp
             </Text>
-            {whatsappStatus.isConnected ? (
-              <TouchableOpacity onPress={handleDisconnect} style={tw`bg-red-100 px-3 py-1 rounded-md ml-4`}>
-                <Text style={tw`text-red-600 text-xs font-bold`}>Desvincular</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={() => setShowQR(!showQR)} style={tw`bg-blue-100 px-3 py-1 rounded-md`}>
-                <Text style={tw`text-blue-600 text-xs font-bold`}>{showQR ? 'Ocultar QR' : 'Vincular WhatsApp'}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {!whatsappStatus.isConnected && showQR && (
-          <View style={tw`items-center mb-4 p-6 bg-gray-50 rounded-lg border border-gray-200`}>
-            <Text style={tw`text-base text-gray-800 mb-4 font-medium text-center`}>
-              Para enviar mensajes automáticamente, vincula tu cuenta de WhatsApp.
-            </Text>
-            {whatsappStatus.error && (
-              <View style={tw`items-center mb-4`}>
-                <Text style={tw`text-sm text-red-500 mb-2 text-center font-bold`}>
-                  Error: {whatsappStatus.error}
+            <View style={tw`flex-row flex-wrap items-center gap-2`}>
+              <View style={tw`flex-row items-center`}>
+                <View style={tw`w-3 h-3 rounded-full mr-2 ${whatsappStatus.isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                <Text style={tw`text-sm text-gray-600 font-medium`}>
+                  {whatsappStatus.isConnected ? 'Conectado' : 'Desconectado'}
                 </Text>
-                <TouchableOpacity onPress={handleConnect} style={tw`bg-blue-600 px-4 py-2 rounded-lg`}>
-                  <Text style={tw`text-white font-bold text-sm`}>Generar nuevo QR</Text>
+              </View>
+              {whatsappStatus.isConnected ? (
+                <TouchableOpacity onPress={handleDisconnect} style={tw`bg-red-100 px-3 py-1 rounded-md`}>
+                  <Text style={tw`text-red-600 text-xs font-bold`}>Desvincular</Text>
                 </TouchableOpacity>
-              </View>
-            )}
-            {whatsappStatus.qrCode ? (
-              <>
-                <Text style={tw`text-sm text-gray-600 mb-4 text-center`}>
-                  1. Abre WhatsApp en tu celular{'\n'}
-                  2. Toca Menú o Configuración y selecciona Dispositivos vinculados{'\n'}
-                  3. Toca Vincular un dispositivo y escanea este código QR
-                </Text>
-                <View style={tw`bg-white p-2 rounded-xl shadow-sm border border-gray-100`}>
-                  <Image source={{ uri: whatsappStatus.qrCode }} style={{ width: 220, height: 220 }} />
-                </View>
-              </>
-            ) : !whatsappStatus.error ? (
-              <Text style={tw`text-sm text-gray-500 italic`}>Generando código QR...</Text>
-            ) : null}
+              ) : (
+                <TouchableOpacity onPress={() => setShowQR(!showQR)} style={tw`bg-blue-100 px-3 py-1 rounded-md`}>
+                  <Text style={tw`text-blue-600 text-xs font-bold`}>{showQR ? 'Ocultar QR' : 'Vincular WhatsApp'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        )}
 
-        <View style={tw`flex-col sm:flex-row gap-4 items-stretch sm:items-end`}>
-          {whatsappStatus.isConnected && (
-            <View style={tw`flex-1`}>
-              <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Número de Destinatario</Text>
-              <View style={tw`flex-row items-center border border-gray-300 rounded-lg bg-gray-50 overflow-hidden`}>
-                <View style={tw`bg-gray-200 px-3 py-2 border-r border-gray-300`}>
-                  <Text style={tw`text-gray-700 font-medium`}>+505</Text>
+          {!whatsappStatus.isConnected && showQR && (
+            <View style={tw`items-center mb-4 p-6 bg-gray-50 rounded-lg border border-gray-200`}>
+              <Text style={tw`text-base text-gray-800 mb-4 font-medium text-center`}>
+                Para enviar mensajes automáticamente, vincula tu cuenta de WhatsApp.
+              </Text>
+              {whatsappStatus.error && (
+                <View style={tw`items-center mb-4`}>
+                  <Text style={tw`text-sm text-red-500 mb-2 text-center font-bold`}>
+                    Error: {whatsappStatus.error}
+                  </Text>
+                  <TouchableOpacity onPress={handleConnect} style={tw`bg-blue-600 px-4 py-2 rounded-lg`}>
+                    <Text style={tw`text-white font-bold text-sm`}>Generar nuevo QR</Text>
+                  </TouchableOpacity>
                 </View>
-                <TextInput
-                  style={tw`flex-1 px-3 py-2 text-gray-900`}
-                  value={recipientPhone.replace(/^\+505/, '')}
-                  onChangeText={(val) => {
-                    const newPhone = '+505' + val.replace(/[^0-9]/g, '');
-                    setRecipientPhone(newPhone);
-                    if (Platform.OS === 'web') {
-                      localStorage.setItem('recipientPhone', newPhone);
-                    }
-                  }}
-                  placeholder="12345678"
-                  keyboardType="phone-pad"
-                />
-              </View>
+              )}
+              {whatsappStatus.qrCode ? (
+                <>
+                  <Text style={tw`text-sm text-gray-600 mb-4 text-center`}>
+                    1. Abre WhatsApp en tu celular{'\n'}
+                    2. Toca Menú o Configuración y selecciona Dispositivos vinculados{'\n'}
+                    3. Toca Vincular un dispositivo y escanea este código QR
+                  </Text>
+                  <View style={tw`bg-white p-2 rounded-xl shadow-sm border border-gray-100`}>
+                    <Image source={{ uri: whatsappStatus.qrCode }} style={{ width: 220, height: 220 }} />
+                  </View>
+                </>
+              ) : !whatsappStatus.error ? (
+                <Text style={tw`text-sm text-gray-500 italic`}>Generando código QR...</Text>
+              ) : null}
             </View>
           )}
-          <View style={tw`flex-row gap-2 w-full sm:w-auto`}>
-            <TouchableOpacity
-              style={tw`bg-gray-600 px-4 py-2.5 rounded-lg flex-row items-center justify-center h-[42px] flex-1 sm:flex-none`}
-              onPress={handlePrint}
-            >
-              <Printer size={20} color="#fff" style={tw`mr-2`} />
-              <Text style={tw`text-white font-medium`}>Imprimir</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={tw`bg-blue-600 px-6 py-2.5 rounded-lg flex-row items-center justify-center h-[42px] flex-1 sm:flex-none ${!whatsappStatus.isConnected ? 'w-full' : ''}`}
-              onPress={handleSubmit}
-            >
-              {whatsappStatus.isConnected ? (
-                <>
-                  <Send size={20} color="#fff" style={tw`mr-2`} />
-                  <Text style={tw`text-white font-medium`}>Enviar</Text>
-                </>
-              ) : (
-                <>
-                  <Save size={20} color="#fff" style={tw`mr-2`} />
-                  <Text style={tw`text-white font-medium`}>Guardar</Text>
-                </>
-              )}
-            </TouchableOpacity>
+
+          <View style={tw`flex-col sm:flex-row gap-4 items-stretch sm:items-end`}>
+            {whatsappStatus.isConnected && (
+              <View style={tw`flex-1`}>
+                <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Número de Destinatario</Text>
+                <View style={tw`flex-row items-center border border-gray-300 rounded-lg bg-gray-50 overflow-hidden`}>
+                  <View style={tw`bg-gray-200 px-3 py-2 border-r border-gray-300`}>
+                    <Text style={tw`text-gray-700 font-medium`}>+505</Text>
+                  </View>
+                  <TextInput
+                    style={tw`flex-1 px-3 py-2 text-gray-900`}
+                    value={recipientPhone.replace(/^\+505/, '')}
+                    onChangeText={(val) => {
+                      const newPhone = '+505' + val.replace(/[^0-9]/g, '');
+                      setRecipientPhone(newPhone);
+                      if (Platform.OS === 'web') {
+                        localStorage.setItem('recipientPhone', newPhone);
+                      }
+                    }}
+                    placeholder="12345678"
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              </View>
+            )}
+            <View style={tw`flex-row gap-2 w-full mt-4`}>
+              <TouchableOpacity
+                style={tw`bg-gray-600 px-4 py-2.5 rounded-lg flex-row items-center justify-center h-[42px] flex-1`}
+                onPress={handlePrint}
+              >
+                <Printer size={20} color="#fff" style={tw`mr-2`} />
+                <Text style={tw`text-white font-medium`}>Imprimir</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={tw`bg-blue-600 px-6 py-2.5 rounded-lg flex-row items-center justify-center h-[42px] flex-1`}
+                onPress={handleSubmit}
+              >
+                {whatsappStatus.isConnected ? (
+                  <>
+                    <Send size={20} color="#fff" style={tw`mr-2`} />
+                    <Text style={tw`text-white font-medium`}>Enviar</Text>
+                  </>
+                ) : (
+                  <>
+                    <Save size={20} color="#fff" style={tw`mr-2`} />
+                    <Text style={tw`text-white font-medium`}>Guardar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
 
-      <View style={tw`flex-col md:flex-row gap-6`}>
+      <View style={tw`flex-row gap-4`}>
         {/* Column 1: FUMIGACION */}
         <View style={tw`flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden`}>
           <View style={tw`bg-blue-50 px-4 py-3 border-b border-blue-100`}>

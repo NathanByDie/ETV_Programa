@@ -33,14 +33,7 @@ function createWindow() {
         setTimeout(() => checkServerAndLoad(url, attempts + 1), 1000);
       } else {
         console.error('El servidor no respondió después de 60 intentos.');
-        const fallbackPath = path.join(__dirname, 'dist', 'index.html');
-        if (fs.existsSync(fallbackPath)) {
-          win.loadFile(fallbackPath).catch(e => {
-            console.error('Error al cargar index.html como respaldo:', e);
-          });
-        } else {
-          win.loadURL('data:text/html,<h1>Error Crítico</h1><p>No se pudo iniciar el servidor interno y no se encontró el archivo de respaldo.</p>');
-        }
+        win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno no respondió a tiempo. Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
       }
     });
 
@@ -68,9 +61,27 @@ function createWindow() {
 
       serverProcess.on('exit', (code, signal) => {
         console.log(`El proceso del servidor salió con código ${code} y señal ${signal}`);
+        win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno se cerró inesperadamente (código ${code}). Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
+      });
+
+      let serverStarted = false;
+      const timeoutId = setTimeout(() => {
+        if (!serverStarted) {
+          console.error('El servidor no envió el mensaje de inicio después de 15 segundos.');
+          win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno no respondió a tiempo. Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
+        }
+      }, 15000);
+
+      serverProcess.on('message', (msg) => {
+        if (msg && msg.type === 'server-started') {
+          serverStarted = true;
+          clearTimeout(timeoutId);
+          console.log(`Servidor iniciado en el puerto ${msg.port}`);
+          checkServerAndLoad(`http://localhost:${msg.port}`);
+        }
       });
       
-      checkServerAndLoad('http://localhost:3000');
+      // checkServerAndLoad('http://localhost:3000'); // Removed hardcoded port
     } catch (err) {
       console.error('Error al intentar iniciar el servidor:', err);
       const fallbackPath = path.join(__dirname, 'dist', 'index.html');

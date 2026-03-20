@@ -8,12 +8,28 @@ import fs from 'fs';
 import pino from 'pino';
 import cors from 'cors';
 
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
+const userDataPath = process.env.USER_DATA_PATH || path.join(process.cwd(), 'data');
+if (!fs.existsSync(userDataPath)) {
+    try {
+        fs.mkdirSync(userDataPath, { recursive: true });
+    } catch (e) {
+        console.error('Error creating userDataPath:', e);
+    }
+}
+const authInfoPath = path.join(userDataPath, 'baileys_auth_info');
+const logPath = path.join(userDataPath, 'baileys.log');
+const serverLogPath = path.join(userDataPath, 'server_error.log');
+
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
+    fs.appendFileSync(serverLogPath, `[${new Date().toISOString()}] Uncaught Exception: ${err.stack || err}\n`);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    fs.appendFileSync(serverLogPath, `[${new Date().toISOString()}] Unhandled Rejection: ${reason}\n`);
 });
 
 const app = express();
@@ -27,24 +43,12 @@ app.use((req, res, next) => {
     next();
 });
 
-const PORT = 3000;
-
 let sock: any = null;
 let qrCodeDataUrl: string | null = null;
 let isConnected = false;
 let isConnecting = false;
 let lastError: string | null = null;
 
-const userDataPath = process.env.USER_DATA_PATH || path.join(process.cwd(), 'data');
-if (!fs.existsSync(userDataPath)) {
-    try {
-        fs.mkdirSync(userDataPath, { recursive: true });
-    } catch (e) {
-        console.error('Error creating userDataPath:', e);
-    }
-}
-const authInfoPath = path.join(userDataPath, 'baileys_auth_info');
-const logPath = path.join(userDataPath, 'baileys.log');
 
 console.log('--- WHATSAPP CONFIG ---');
 console.log('User Data Path:', userDataPath);
@@ -300,13 +304,27 @@ async function startServer() {
         });
     }
 
-    app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server running on http://0.0.0.0:${PORT}`);
+    const server = app.listen(PORT, "0.0.0.0", () => {
+        const address = server.address();
+        const actualPort = typeof address === 'string' ? PORT : address?.port;
+        console.log(`Server running on http://0.0.0.0:${actualPort}`);
+        if (process.send) {
+            process.send({ type: 'server-started', port: actualPort });
+        }
     }).on('error', (err: any) => {
         if (err.code === 'EADDRINUSE') {
-            console.error(`Port ${PORT} is already in use. Please close other instances.`);
+            console.error(`Port ${PORT} is already in use. Trying a random port...`);
+            const fallbackServer = app.listen(0, "0.0.0.0", () => {
+                const address = fallbackServer.address();
+                const actualPort = typeof address === 'string' ? 0 : address?.port;
+                console.log(`Server running on fallback port http://0.0.0.0:${actualPort}`);
+                if (process.send) {
+                    process.send({ type: 'server-started', port: actualPort });
+                }
+            });
         } else {
             console.error('Server error:', err);
+            fs.appendFileSync(serverLogPath, `[${new Date().toISOString()}] Server error: ${err}\n`);
         }
     });
 }

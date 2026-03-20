@@ -36,11 +36,14 @@ export default function App() {
         setFirebaseConnected(true);
       } catch (error: any) {
         console.warn("Auth warning:", error.code);
-        setFirebaseConnected(false);
         if (error.code === 'auth/configuration-not-found' || error.code === 'auth/admin-restricted-operation') {
-          setAuthError("Nota: Autenticación anónima no habilitada. La app funcionará en modo DEMO.");
+          setAuthError("Nota: Autenticación anónima no habilitada. La app funcionará en modo DEMO si las reglas no permiten acceso público.");
+          setFirebaseConnected(true); // Still connected to Firebase, just not authenticated
         } else if (error.code === 'auth/network-request-failed') {
           setAuthError("Error de red: No se pudo conectar con Firebase.");
+          setFirebaseConnected(false);
+        } else {
+          setFirebaseConnected(true); // Assume connected for other errors
         }
       }
     };
@@ -50,6 +53,7 @@ export default function App() {
   useEffect(() => {
     const handleOnline = async () => {
       setIsOffline(false);
+      if (!firebaseConnected) return; // Wait for Firebase to connect
       const queue = localStorage.getItem('sync_queue');
       if (queue && JSON.parse(queue).length > 0) {
         setIsSyncing(true);
@@ -63,7 +67,7 @@ export default function App() {
     window.addEventListener('offline', handleOffline);
 
     // Initial check if we came online with pending changes
-    if (navigator.onLine) {
+    if (navigator.onLine && firebaseConnected) {
       handleOnline();
     }
 
@@ -71,7 +75,7 @@ export default function App() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [firebaseConnected]);
 
   return (
     <LoadingProvider>
