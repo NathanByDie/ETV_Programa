@@ -484,7 +484,7 @@ export default function Consolidado() {
         </View>
       </View>
 
-      <View style={tw`flex-col lg:flex-row gap-6`}>
+      <View style={tw`flex-col md:flex-row gap-6`}>
         {/* Column 1: FUMIGACION */}
         <View style={tw`flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden`}>
           <View style={tw`bg-blue-50 px-4 py-3 border-b border-blue-100`}>
