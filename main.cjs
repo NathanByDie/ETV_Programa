@@ -20,7 +20,9 @@ function createWindow() {
       console.log('Servidor detectado, cargando URL...');
       win.loadURL(url).catch(err => {
         console.error('Error al cargar la URL del servidor:', err);
-        if (!app.isPackaged) win.webContents.openDevTools();
+        if (!app.isPackaged) {
+          // win.webContents.openDevTools();
+        }
       });
     }).on('error', () => {
       if (attempts < 20) {
@@ -32,7 +34,9 @@ function createWindow() {
         console.log('Cargando fallback:', fallbackPath);
         win.loadFile(fallbackPath).catch(e => {
           console.error('Error al cargar index.html como respaldo:', e);
-          if (!app.isPackaged) win.webContents.openDevTools();
+          if (!app.isPackaged) {
+            // win.webContents.openDevTools();
+          }
         });
       }
     });
