@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs';
 import pino from 'pino';
+import cors from 'cors';
 
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
@@ -16,8 +17,16 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const app = express();
+app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
 const PORT = 3000;
 
 let sock: any = null;
@@ -164,6 +173,7 @@ connectToWhatsApp();
 
 // API Routes
 app.get('/api/health', (req, res) => {
+    console.log('Health check received');
     res.json({ status: 'ok', isConnected, isConnecting, hasLastError: !!lastError });
 });
 

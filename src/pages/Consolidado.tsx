@@ -85,6 +85,13 @@ const getInitialData = (): ConsolidadoData => ({
   abateKgUtilizado: "",
 });
 
+const getApiUrl = (path: string) => {
+  if (window.location.protocol === 'file:' || (typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron'))) {
+    return `http://localhost:3000${path}`;
+  }
+  return path;
+};
+
 export default function Consolidado() {
   const [data, setData] = useState<ConsolidadoData>(getInitialData());
   const [showHistory, setShowHistory] = useState(false);
@@ -104,12 +111,12 @@ export default function Consolidado() {
     let interval: any;
     const checkWhatsappStatus = async () => {
       try {
-        const res = await fetch(`/api/whatsapp/status?t=${Date.now()}`).catch(() => null);
+        const res = await fetch(getApiUrl(`/api/whatsapp/status?t=${Date.now()}`)).catch(() => null);
         if (!res) {
           throw new Error('No se pudo conectar con el servidor local');
         }
         if (!res.ok) {
-          const healthRes = await fetch('/api/health').catch(() => null);
+          const healthRes = await fetch(getApiUrl('/api/health')).catch(() => null);
           if (!healthRes || !healthRes.ok) {
             throw new Error('El servidor local no responde');
           }
@@ -125,13 +132,13 @@ export default function Consolidado() {
         setWhatsappStatus(prev => ({
           ...prev,
           isConnected: false,
-          error: `Error de conexión: ${error.message || "No se pudo conectar al servidor"}. Reintentando...`
+          error: `Error de conexión: ${error.message || "No se pudo conectar al servidor"}. (URL: ${window.location.href}, API: ${getApiUrl('/api/whatsapp/status')}). Reintentando...`
         }));
       }
     };
 
     checkWhatsappStatus();
-    interval = setInterval(checkWhatsappStatus, 5000); // Increased interval to 5s for less noise
+    interval = setInterval(checkWhatsappStatus, 5000); 
 
     return () => clearInterval(interval);
   }, []);
@@ -139,11 +146,11 @@ export default function Consolidado() {
   const handleConnect = async () => {
     try {
       setLoading(true, "Generando QR...");
-      const res = await fetch('/api/whatsapp/connect', { method: 'POST' }).catch(() => null);
+      const res = await fetch(getApiUrl('/api/whatsapp/connect'), { method: 'POST' }).catch(() => null);
       if (!res || !res.ok) {
         throw new Error('Error al iniciar la conexión de WhatsApp');
       }
-      const statusRes = await fetch(`/api/whatsapp/status?t=${Date.now()}`).catch(() => null);
+      const statusRes = await fetch(getApiUrl(`/api/whatsapp/status?t=${Date.now()}`)).catch(() => null);
       if (statusRes && statusRes.ok) {
         const statusData = await statusRes.json();
         setWhatsappStatus(statusData);
@@ -159,7 +166,7 @@ export default function Consolidado() {
   const handleDisconnect = async () => {
     try {
       setLoading(true, "Desvinculando...");
-      await fetch('/api/whatsapp/disconnect', { method: 'POST' });
+      await fetch(getApiUrl('/api/whatsapp/disconnect'), { method: 'POST' });
       setWhatsappStatus({ isConnected: false, qrCode: null });
     } catch (error) {
       console.error("Error disconnecting:", error);
@@ -252,7 +259,7 @@ export default function Consolidado() {
           setLoading(true, "Enviando por WhatsApp...");
           const message = `*CONSOLIDADO DE ACTIVIDADES*\nFecha: ${data.fecha}\n\nAdjunto el consolidado en formato de imagen.`;
           
-          const res = await fetch('/api/whatsapp/send', {
+          const res = await fetch(getApiUrl('/api/whatsapp/send'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -273,7 +280,7 @@ export default function Consolidado() {
           setLoading(true, "Enviando por WhatsApp...");
           const message = `*CONSOLIDADO DE ACTIVIDADES*\nFecha: ${data.fecha}\n\n(La imagen del consolidado solo se puede generar en la versión web).`;
           
-          const res = await fetch('/api/whatsapp/send', {
+          const res = await fetch(getApiUrl('/api/whatsapp/send'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
