@@ -78,11 +78,40 @@ export default function Croquis() {
   const [history, setHistory] = useState<Element[][]>([]);
   const [historyStep, setHistoryStep] = useState(-1);
 
+  const containerRef = useRef<any>(null);
+
   useEffect(() => {
     if (viewMode === 'list') {
       loadCroquisList();
     }
   }, [viewMode]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          console.log("ResizeObserver updating stage size:", width, height);
+          setStageDimensions({ width, height });
+        }
+      }
+    });
+    
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [viewMode]);
+
+  // Safety timeout for fetching state
+  useEffect(() => {
+    if (isFetching) {
+      const timer = setTimeout(() => {
+        setIsFetching(false);
+      }, 6000); // 6s safety timeout
+      return () => clearTimeout(timer);
+    }
+  }, [isFetching]);
 
   useEffect(() => {
     if (shouldFitToScreen && viewMode === 'edit' && stageDimensions.width > 0) {
@@ -132,7 +161,13 @@ export default function Croquis() {
     setIsFetching(true);
     try {
       const data = await api.getAllCroquis();
-      setCroquisList(data || []);
+      console.log("Croquis data loaded:", data?.length);
+      // Ensure elements is always an array for each croquis
+      const sanitizedData = (data || []).map((c: any) => ({
+        ...c,
+        elements: Array.isArray(c.elements) ? c.elements : []
+      }));
+      setCroquisList(sanitizedData);
     } catch (e) {
       console.error("Error loading croquis list:", e);
     } finally {
@@ -967,6 +1002,7 @@ export default function Croquis() {
 
         {/* Canvas Area */}
         <View 
+          ref={containerRef}
           style={tw`flex-1 relative overflow-hidden bg-gray-50`}
           onLayout={onLayout}
         >

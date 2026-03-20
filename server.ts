@@ -26,14 +26,31 @@ let isConnected = false;
 let isConnecting = false;
 let lastError: string | null = null;
 
-const userDataPath = process.env.USER_DATA_PATH || process.cwd();
+const userDataPath = process.env.USER_DATA_PATH || path.join(process.cwd(), 'data');
+if (!fs.existsSync(userDataPath)) {
+    try {
+        fs.mkdirSync(userDataPath, { recursive: true });
+    } catch (e) {
+        console.error('Error creating userDataPath:', e);
+    }
+}
 const authInfoPath = path.join(userDataPath, 'baileys_auth_info');
 const logPath = path.join(userDataPath, 'baileys.log');
 
+console.log('--- WHATSAPP CONFIG ---');
+console.log('User Data Path:', userDataPath);
+console.log('Auth Info Path:', authInfoPath);
+console.log('Log Path:', logPath);
+
 async function connectToWhatsApp() {
-    if (isConnecting) return;
+    console.log('--- STARTING WHATSAPP CONNECTION ---');
+    if (isConnecting) {
+        console.log('Already connecting, skipping...');
+        return;
+    }
     isConnecting = true;
     try {
+        console.log('Reading auth state from:', authInfoPath);
         let authState;
         try {
             authState = await useMultiFileAuthState(authInfoPath);
@@ -43,17 +60,30 @@ async function connectToWhatsApp() {
             authState = await useMultiFileAuthState(authInfoPath);
         }
         const { state, saveCreds } = authState;
-        const { version, isLatest } = await fetchLatestBaileysVersion();
-        const logger = pino({ level: 'info' }, pino.destination(logPath));
-        logger.info(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
+        console.log('Fetching latest Baileys version...');
+        const { version, isLatest } = await fetchLatestBaileysVersion().catch(err => {
+            console.warn('Error fetching latest Baileys version, using default...', err);
+            return { version: [3, 50, 0], isLatest: false };
+        });
+        
+        let logger;
+        try {
+            logger = pino({ level: 'info' }, pino.destination(logPath));
+        } catch (e) {
+            console.warn('Error creating pino logger with destination, using default logger...', e);
+            logger = pino({ level: 'info' });
+        }
+        
+        console.log(`Using WA v${version.join('.')}, isLatest: ${isLatest}`);
 
         sock = makeWASocket({
-            version,
+            version: version as any,
             auth: state,
             printQRInTerminal: false,
             logger: logger as any,
             browser: Browsers.macOS('Desktop')
         });
+        console.log('WhatsApp socket created, setting up events...');
 
         sock.ev.on('connection.update', async (update: any) => {
             try {
@@ -133,7 +163,12 @@ async function connectToWhatsApp() {
 connectToWhatsApp();
 
 // API Routes
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', isConnected, isConnecting, hasLastError: !!lastError });
+});
+
 app.get('/api/whatsapp/status', (req, res) => {
+    console.log('GET /api/whatsapp/status hit');
     res.json({ isConnected, qrCode: qrCodeDataUrl, error: lastError });
 });
 
@@ -219,10 +254,24 @@ async function startServer() {
         app.use(vite.middlewares);
     } else {
         // En producción (Electron), currentDir apunta a la carpeta donde está server.js
-        // Si server.js está en la raíz, distPath es ./dist. Si está en dist/, es currentDir.
-        const distPath = path.basename(currentDir) === 'dist' ? currentDir : path.join(currentDir, 'dist');
+        // Intentamos encontrar la carpeta dist de forma robusta
+        let distPath = currentDir;
+        if (path.basename(currentDir) !== 'dist') {
+            const potentialDist = path.join(currentDir, 'dist');
+            if (fs.existsSync(potentialDist)) {
+                distPath = potentialDist;
+            } else {
+                // Si no está en dist/, tal vez estamos en la raíz del app bundle
+                const rootDist = path.join(process.cwd(), 'dist');
+                if (fs.existsSync(rootDist)) {
+                    distPath = rootDist;
+                }
+            }
+        }
+        
         console.log('--- PRODUCTION MODE ---');
         console.log('Current directory:', currentDir);
+        console.log('Process CWD:', process.cwd());
         console.log('Serving static files from:', distPath);
         
         if (!fs.existsSync(distPath)) {
@@ -236,7 +285,7 @@ async function startServer() {
                 res.sendFile(indexPath);
             } else {
                 console.error('CRITICAL ERROR: index.html not found at:', indexPath);
-                res.status(404).send('index.html not found in ' + distPath);
+                res.status(404).send('index.html not found in ' + distPath + '. Please ensure the app is built correctly.');
             }
         });
     }

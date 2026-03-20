@@ -20,7 +20,11 @@ const getLocal = (key: string) => {
   }
 };
 
-const isOnline = () => navigator.onLine;
+const isOnline = () => {
+  // In Electron, navigator.onLine can be unreliable.
+  // We check both navigator.onLine and a custom flag if needed.
+  return navigator.onLine;
+};
 
 const addToSyncQueue = (action: any) => {
   const queue = getLocal('sync_queue');
@@ -31,11 +35,16 @@ const addToSyncQueue = (action: any) => {
 };
 
 // Helper to prevent infinite hanging on getDocs
-const getDocsWithTimeout = async (q: Query, timeoutMs = 8000) => {
+const getDocsWithTimeout = async (q: Query, timeoutMs = 4000) => {
   const timeoutPromise = new Promise((_, reject) => 
     setTimeout(() => reject(new Error('Firebase request timeout')), timeoutMs)
   );
-  return Promise.race([getDocs(q), timeoutPromise]) as Promise<any>;
+  try {
+    return await Promise.race([getDocs(q), timeoutPromise]) as any;
+  } catch (e) {
+    console.warn('getDocsWithTimeout failed or timed out:', e);
+    throw e;
+  }
 };
 
 export const api = {
@@ -248,45 +257,67 @@ export const api = {
   // Croquis
   getAllCroquis: async () => {
     try {
-      if (!isOnline()) throw new Error('Offline');
+      // Always return local data immediately if offline
+      if (!isOnline()) return getLocal('all_croquis');
+
       const q = query(collection(db, "croquis"), orderBy("updatedAt", "desc"));
-      const snapshot = await getDocsWithTimeout(q);
-      const data = snapshot.docs.map((d: any) => {
-        let elements = [];
-        try {
-          elements = JSON.parse(d.data().data);
-        } catch (err) {
-          console.warn('Error parsing croquis elements', err);
-        }
-        return {
-          id: d.id,
-          ...d.data(),
-          elements
-        };
-      });
-      syncLocal('all_croquis', data);
-      return data;
+      
+      // Try to get from server with a strict timeout
+      try {
+        const snapshot = await getDocsWithTimeout(q, 3000);
+        const data = snapshot.docs.map((d: any) => {
+          const docData = d.data();
+          let elements = [];
+          try {
+            if (docData.data) {
+              elements = typeof docData.data === 'string' ? JSON.parse(docData.data) : docData.data;
+            }
+          } catch (err) {
+            console.warn('Error parsing croquis elements for doc:', d.id, err);
+          }
+          return {
+            id: d.id,
+            ...docData,
+            elements: Array.isArray(elements) ? elements : []
+          };
+        });
+        syncLocal('all_croquis', data);
+        return data;
+      } catch (timeoutErr) {
+        console.warn('Firebase fetch timed out, using local data', timeoutErr);
+        return getLocal('all_croquis');
+      }
     } catch (e) {
+      console.error('Error in getAllCroquis:', e);
       return getLocal('all_croquis');
     }
   },
   getCroquis: async () => {
     try {
-      if (!isOnline()) throw new Error('Offline');
+      if (!isOnline()) return getLocal('croquis');
+
       const q = query(collection(db, "croquis"), orderBy("updatedAt", "desc"));
-      const snapshot = await getDocsWithTimeout(q);
-      if (!snapshot.empty) {
-        const docData = snapshot.docs[0].data();
-        let data = [];
-        try {
-          data = JSON.parse(docData.data);
-        } catch (err) {
-          console.warn('Error parsing croquis elements', err);
+      try {
+        const snapshot = await getDocsWithTimeout(q, 3000);
+        if (!snapshot.empty) {
+          const docData = snapshot.docs[0].data();
+          let data = [];
+          try {
+            if (docData.data) {
+              data = typeof docData.data === 'string' ? JSON.parse(docData.data) : docData.data;
+            }
+          } catch (err) {
+            console.warn('Error parsing croquis elements', err);
+          }
+          const finalData = Array.isArray(data) ? data : [];
+          syncLocal('croquis', JSON.stringify(finalData));
+          return finalData;
         }
-        syncLocal('croquis', docData.data);
-        return data;
+        return null;
+      } catch (timeoutErr) {
+        const local = getLocal('croquis');
+        return local ? local : null;
       }
-      return null;
     } catch (e) {
       const local = getLocal('croquis');
       return local ? local : null;

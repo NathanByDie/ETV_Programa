@@ -1,6 +1,7 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const http = require('http');
+const fs = require('fs');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -16,30 +17,31 @@ function createWindow() {
 
   const checkServerAndLoad = (url, attempts = 0) => {
     console.log(`Intentando conectar al servidor (intento ${attempts + 1})...`);
-    http.get(url, (res) => {
+    const request = http.get(url, (res) => {
       console.log('Servidor detectado, cargando URL...');
       win.loadURL(url).catch(err => {
         console.error('Error al cargar la URL del servidor:', err);
-        if (!app.isPackaged) {
-          // win.webContents.openDevTools();
-        }
       });
-    }).on('error', () => {
-      if (attempts < 20) {
-        setTimeout(() => checkServerAndLoad(url, attempts + 1), 500);
+    });
+
+    request.on('error', (err) => {
+      console.log(`Servidor no disponible aún: ${err.message}`);
+      if (attempts < 30) {
+        setTimeout(() => checkServerAndLoad(url, attempts + 1), 1000);
       } else {
-        console.error('El servidor no respondió después de 20 intentos.');
-        // Fallback a cargar el archivo directamente si el servidor falla
+        console.error('El servidor no respondió después de 30 intentos.');
         const fallbackPath = path.join(__dirname, 'dist', 'index.html');
-        console.log('Cargando fallback:', fallbackPath);
-        win.loadFile(fallbackPath).catch(e => {
-          console.error('Error al cargar index.html como respaldo:', e);
-          if (!app.isPackaged) {
-            // win.webContents.openDevTools();
-          }
-        });
+        if (fs.existsSync(fallbackPath)) {
+          win.loadFile(fallbackPath).catch(e => {
+            console.error('Error al cargar index.html como respaldo:', e);
+          });
+        } else {
+          win.loadURL('data:text/html,<h1>Error Crítico</h1><p>No se pudo iniciar el servidor interno y no se encontró el archivo de respaldo.</p>');
+        }
       }
     });
+
+    request.end();
   };
 
   if (app.isPackaged) {

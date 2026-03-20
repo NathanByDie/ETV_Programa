@@ -104,25 +104,34 @@ export default function Consolidado() {
     let interval: any;
     const checkWhatsappStatus = async () => {
       try {
-        const res = await fetch(`/api/whatsapp/status?t=${Date.now()}`);
-        if (!res.ok) throw new Error('Network response was not ok');
+        const res = await fetch(`/api/whatsapp/status?t=${Date.now()}`).catch(() => null);
+        if (!res) {
+          throw new Error('No se pudo conectar con el servidor local');
+        }
+        if (!res.ok) {
+          const healthRes = await fetch('/api/health').catch(() => null);
+          if (!healthRes || !healthRes.ok) {
+            throw new Error('El servidor local no responde');
+          }
+          throw new Error(`Error del servidor: ${res.status}`);
+        }
         const statusData = await res.json();
         setWhatsappStatus(statusData);
         if (statusData.isConnected) {
           setShowQR(false);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching WhatsApp status:", error);
         setWhatsappStatus(prev => ({
           ...prev,
           isConnected: false,
-          error: "No se pudo conectar al servidor. Reintentando..."
+          error: `Error de conexión: ${error.message || "No se pudo conectar al servidor"}. Reintentando...`
         }));
       }
     };
 
     checkWhatsappStatus();
-    interval = setInterval(checkWhatsappStatus, 3000);
+    interval = setInterval(checkWhatsappStatus, 5000); // Increased interval to 5s for less noise
 
     return () => clearInterval(interval);
   }, []);
@@ -130,12 +139,18 @@ export default function Consolidado() {
   const handleConnect = async () => {
     try {
       setLoading(true, "Generando QR...");
-      await fetch('/api/whatsapp/connect', { method: 'POST' });
-      const res = await fetch(`/api/whatsapp/status?t=${Date.now()}`);
-      const statusData = await res.json();
-      setWhatsappStatus(statusData);
-    } catch (error) {
+      const res = await fetch('/api/whatsapp/connect', { method: 'POST' }).catch(() => null);
+      if (!res || !res.ok) {
+        throw new Error('Error al iniciar la conexión de WhatsApp');
+      }
+      const statusRes = await fetch(`/api/whatsapp/status?t=${Date.now()}`).catch(() => null);
+      if (statusRes && statusRes.ok) {
+        const statusData = await statusRes.json();
+        setWhatsappStatus(statusData);
+      }
+    } catch (error: any) {
       console.error("Error connecting:", error);
+      setWhatsappStatus(prev => ({ ...prev, error: error.message }));
     } finally {
       setLoading(false);
     }

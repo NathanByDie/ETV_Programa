@@ -26,14 +26,25 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [firebaseConnected, setFirebaseConnected] = useState(false);
 
   useEffect(() => {
-    signInAnonymously(auth).catch((error) => {
-      console.warn("Auth warning:", error.code); // Warn instead of error to reduce noise
-      if (error.code === 'auth/configuration-not-found' || error.code === 'auth/admin-restricted-operation') {
-        setAuthError("Nota: Autenticación anónima no habilitada. La app funcionará en modo DEMO (sin guardar datos).");
+    // Test Firebase connection
+    const testConn = async () => {
+      try {
+        await signInAnonymously(auth);
+        setFirebaseConnected(true);
+      } catch (error: any) {
+        console.warn("Auth warning:", error.code);
+        setFirebaseConnected(false);
+        if (error.code === 'auth/configuration-not-found' || error.code === 'auth/admin-restricted-operation') {
+          setAuthError("Nota: Autenticación anónima no habilitada. La app funcionará en modo DEMO.");
+        } else if (error.code === 'auth/network-request-failed') {
+          setAuthError("Error de red: No se pudo conectar con Firebase.");
+        }
       }
-    });
+    };
+    testConn();
   }, []);
 
   useEffect(() => {
@@ -71,6 +82,11 @@ export default function App() {
             {isOffline && (
               <View style={tw`bg-red-500 p-2 flex-row justify-center items-center shrink-0 z-50`}>
                 <Text style={tw`text-white text-center text-sm font-bold`}>Modo Offline</Text>
+              </View>
+            )}
+            {!isOffline && !firebaseConnected && (
+              <View style={tw`bg-yellow-600 p-1 flex-row justify-center items-center shrink-0 z-50`}>
+                <Text style={tw`text-white text-center text-[10px] font-bold`}>Conectando con Firebase...</Text>
               </View>
             )}
             {isSyncing && !isOffline && (
