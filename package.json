@@ -13,7 +13,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "windows": "react-native-windows",
-    "build": "vite build && npx esbuild server.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/server.cjs --external:express --external:vite --external:@whiskeysockets/baileys --external:@hapi/boom --external:qrcode --external:pino",
+    "build": "vite build && npx esbuild server.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/server.mjs --external:express --external:vite --external:@whiskeysockets/baileys --external:@hapi/boom --external:qrcode --external:pino --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",

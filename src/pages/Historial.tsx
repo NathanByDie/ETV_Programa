@@ -6,6 +6,8 @@ import { Trash2, Search, Filter, MapPin, Calendar, Printer, User, Hash } from "l
 import tw from "twrnc";
 import { api } from "../lib/api";
 import { useLoading } from "../contexts/LoadingContext";
+import logoMinsa from "../assets/images/MINSAlogoEncabezado.png";
+import logoApp from "../assets/images/LogoAppETV.png";
 
 interface Asignacion {
   id: string;
@@ -334,9 +336,9 @@ export default function Historial() {
       <div id="pdf-content" style="width: 215.9mm; min-height: 355.6mm; margin: 20px auto; padding: 15mm; box-sizing: border-box; background: white; font-family: 'Arial', sans-serif; font-size: 16px; line-height: 1.4; display: flex; flex-direction: column; position: relative; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: 0 0 10px rgba(0,0,0,0.5);">
         <div class="header" style="text-align: center; margin-bottom: 20px; position: relative;">
           <!-- Logo Izquierdo -->
-          <img src="https://www.minsa.gob.ni/sites/default/files/Logo-01.png" style="position: absolute; left: 0; top: 0; width: 170px; height: 80px; object-fit: contain;" />
+          <img src="${logoMinsa}" style="position: absolute; left: 0; top: 0; width: 170px; height: 80px; object-fit: contain;" />
           <!-- Logo Derecho -->
-          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTDUPykT7GOjsNSvJL_ePAoTw3WEihUfGo80A&s" style="position: absolute; right: 0; top: 0; width: 190px; height: 70px; object-fit: contain;" />
+          <img src="${logoApp}" style="position: absolute; right: 0; top: 0; width: 190px; height: 70px; object-fit: contain;" />
           
           <h3 style="margin: 4px 0; font-size: 20px; color: #000;">MINISTERIO DE SALUD</h3>
           <h3 style="margin: 4px 0; font-size: 20px; color: #000;">HOSPITAL PRIMARIO DE CAMOAPA</h3>
@@ -477,7 +479,7 @@ export default function Historial() {
           
           <!-- Logo Inferior -->
           <div style="margin-top: 5px;">
-            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS27CGlOr9nf1ODCnqoeAYeUFqXP24AgyL9rw&s" style="width: 150px; height: 60px; object-fit: contain;" />
+            <img src="${logoApp}" style="width: 150px; height: 60px; object-fit: contain;" />
           </div>
         </div>
       </div>

@@ -9,6 +9,8 @@ import { AlertCircle, CheckCircle, Map as MapIcon, Target, X } from "lucide-reac
 import tw from "twrnc";
 import { api } from "../lib/api";
 import html2pdf from "html2pdf.js";
+import logoMinsa from "../assets/images/MINSAlogoEncabezado.png";
+import logoApp from "../assets/images/LogoAppETV.png";
 
 interface Brigadista {
   id: string;
@@ -612,9 +614,9 @@ export default function OperativoFoco() {
         <div id="pdf-content" style="width: 215.9mm !important; height: 355.6mm !important; padding: 10mm !important; margin: 0 auto !important; box-sizing: border-box !important; display: flex !important; flex-direction: column !important; page-break-after: always;">
           <div class="header" style="text-align: center; margin-bottom: 20px; position: relative;">
             <!-- Logo Izquierdo -->
-            <img src="https://www.minsa.gob.ni/sites/default/files/Logo-01.png" style="position: absolute; left: 0; top: 0; width: 170px; height: 80px; object-fit: contain;" />
+            <img src="${logoMinsa}" style="position: absolute; left: 0; top: 0; width: 170px; height: 80px; object-fit: contain;" />
             <!-- Logo Derecho -->
-            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTDUPykT7GOjsNSvJL_ePAoTw3WEihUfGo80A&s" style="position: absolute; right: 0; top: 0; width: 190px; height: 70px; object-fit: contain;" />
+            <img src="${logoApp}" style="position: absolute; right: 0; top: 0; width: 190px; height: 70px; object-fit: contain;" />
             
             <h3 style="margin: 4px 0; font-size: 20px; color: #000;">MINISTERIO DE SALUD</h3>
             <h3 style="margin: 4px 0; font-size: 20px; color: #000;">HOSPITAL PRIMARIO DE CAMOAPA</h3>
@@ -746,7 +748,7 @@ export default function OperativoFoco() {
             
             <!-- Logo Inferior -->
             <div style="margin-top: 5px;">
-              <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS27CGlOr9nf1ODCnqoeAYeUFqXP24AgyL9rw&s" style="width: 150px; height: 60px; object-fit: contain;" />
+              <img src="${logoApp}" style="width: 150px; height: 60px; object-fit: contain;" />
             </div>
           </div>
         </div>
