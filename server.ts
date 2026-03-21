@@ -1,14 +1,7 @@
 import express from "express";
 import 'dotenv/config';
-import makeWASocket, { useMultiFileAuthState, DisconnectReason, Browsers, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
-import { Boom } from '@hapi/boom';
-import QRCode from 'qrcode';
-import path from 'path';
 import fs from 'fs';
-import pino from 'pino';
-import cors from 'cors';
-
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+import path from 'path';
 
 const userDataPath = process.env.USER_DATA_PATH || path.join(process.cwd(), 'data');
 if (!fs.existsSync(userDataPath)) {
@@ -18,22 +11,52 @@ if (!fs.existsSync(userDataPath)) {
         console.error('Error creating userDataPath:', e);
     }
 }
+const serverLogPath = path.join(userDataPath, 'server_error.log');
+const debugLogPath = path.join(userDataPath, 'server_debug.log');
 const authInfoPath = path.join(userDataPath, 'baileys_auth_info');
 const logPath = path.join(userDataPath, 'baileys.log');
-const serverLogPath = path.join(userDataPath, 'server_error.log');
+
+function debugLog(msg: string) {
+    const logMsg = `[${new Date().toISOString()}] ${msg}\n`;
+    console.log(logMsg.trim());
+    try {
+        fs.appendFileSync(debugLogPath, logMsg);
+    } catch (e) {}
+}
+
+debugLog('Server process started');
+
+import makeWASocket, { useMultiFileAuthState, DisconnectReason, Browsers, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+import { Boom } from '@hapi/boom';
+import QRCode from 'qrcode';
+import pino from 'pino';
+import cors from 'cors';
+
+debugLog('Imports completed');
+
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
 
 process.on('uncaughtException', (err) => {
+    debugLog(`Uncaught Exception: ${err.stack || err}`);
     console.error('Uncaught Exception:', err);
     fs.appendFileSync(serverLogPath, `[${new Date().toISOString()}] Uncaught Exception: ${err.stack || err}\n`);
     if (process.send) {
-        process.send({ type: 'server-error', error: err.message || String(err) });
+        try {
+            process.send({ type: 'server-error', error: err.message || String(err) });
+        } catch (e: any) {
+            debugLog(`Error sending IPC message: ${e.message}`);
+        }
     }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+    debugLog(`Unhandled Rejection: ${reason}`);
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
     fs.appendFileSync(serverLogPath, `[${new Date().toISOString()}] Unhandled Rejection: ${reason}\n`);
 });
+
+debugLog('Process handlers registered');
 
 const app = express();
 app.use(cors());
@@ -59,6 +82,7 @@ console.log('Auth Info Path:', authInfoPath);
 console.log('Log Path:', logPath);
 
 async function connectToWhatsApp() {
+    debugLog('connectToWhatsApp called');
     console.log('--- STARTING WHATSAPP CONNECTION ---');
     if (isConnecting) {
         console.log('Already connecting, skipping...');
@@ -263,6 +287,7 @@ const getDirname = () => {
 const currentDir = getDirname();
 
 async function startServer() {
+    debugLog('startServer called');
     if (process.env.NODE_ENV !== "production") {
         const { createServer: createViteServer } = await import("vite");
         const vite = await createViteServer({
@@ -308,32 +333,53 @@ async function startServer() {
         });
     }
 
-    const server = app.listen(PORT, "127.0.0.1", () => {
+    debugLog(`Attempting to listen on localhost:${PORT}`);
+    const server = app.listen(PORT, "localhost", () => {
         const address = server.address();
         const actualPort = typeof address === 'string' ? PORT : address?.port;
-        console.log(`Server running on http://127.0.0.1:${actualPort}`);
+        debugLog(`Server listening successfully on port ${actualPort}`);
+        console.log(`Server running on http://localhost:${actualPort}`);
         if (process.send) {
-            process.send({ type: 'server-started', port: actualPort });
+            debugLog('Sending server-started message via IPC');
+            try {
+                process.send({ type: 'server-started', port: actualPort });
+            } catch (e: any) {
+                debugLog(`Error sending IPC message: ${e.message}`);
+            }
+        } else {
+            debugLog('process.send is undefined, cannot send IPC message');
         }
     }).on('error', (err: any) => {
+        debugLog(`Server listen error: ${err.message}`);
         if (err.code === 'EADDRINUSE') {
             console.error(`Port ${PORT} is already in use. Trying a random port...`);
-            const fallbackServer = app.listen(0, "127.0.0.1", () => {
+            const fallbackServer = app.listen(0, "localhost", () => {
                 const address = fallbackServer.address();
                 const actualPort = typeof address === 'string' ? 0 : address?.port;
-                console.log(`Server running on fallback port http://127.0.0.1:${actualPort}`);
+                console.log(`Server running on fallback port http://localhost:${actualPort}`);
                 if (process.send) {
-                    process.send({ type: 'server-started', port: actualPort });
+                    try {
+                        process.send({ type: 'server-started', port: actualPort });
+                    } catch (e: any) {
+                        debugLog(`Error sending IPC message: ${e.message}`);
+                    }
                 }
             });
         } else {
             console.error('Server error:', err);
             fs.appendFileSync(serverLogPath, `[${new Date().toISOString()}] Server error: ${err}\n`);
             if (process.send) {
-                process.send({ type: 'server-error', error: err.message || String(err) });
+                try {
+                    process.send({ type: 'server-error', error: err.message || String(err) });
+                } catch (e: any) {
+                    debugLog(`Error sending IPC message: ${e.message}`);
+                }
             }
         }
     });
 }
 
-startServer();
+debugLog('Calling startServer');
+startServer().catch(err => {
+    debugLog(`startServer failed: ${err.message}`);
+});

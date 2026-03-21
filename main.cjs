@@ -18,7 +18,7 @@ function createWindow() {
     }
   });
 
-  const checkServerAndLoad = (url, attempts = 0) => {
+  const checkServerAndLoad = (url, attempts = 0, isFallback = false) => {
     console.log(`Intentando conectar al servidor (intento ${attempts + 1})...`);
     const request = http.get(url, (res) => {
       console.log('Servidor detectado, cargando URL...');
@@ -29,11 +29,14 @@ function createWindow() {
 
     request.on('error', (err) => {
       console.log(`Servidor no disponible aún: ${err.message}`);
-      if (attempts < 60) { // Aumentamos a 60 intentos (1 minuto)
+      if (attempts < 60 && !isFallback) { // Aumentamos a 60 intentos (1 minuto)
         setTimeout(() => checkServerAndLoad(url, attempts + 1), 1000);
+      } else if (isFallback && attempts < 5) {
+        setTimeout(() => checkServerAndLoad(url, attempts + 1, true), 1000);
       } else {
-        console.error('El servidor no respondió después de 60 intentos.');
-        win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno no respondió a tiempo. Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
+        console.error('El servidor no respondió.');
+        if (serverProcess) serverProcess.kill();
+        win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno no respondió a tiempo en ${url}. Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
       }
     });
 
@@ -53,8 +56,12 @@ function createWindow() {
           USER_DATA_PATH: app.getPath('userData'),
           APP_DIST_PATH: path.join(__dirname, 'dist')
         },
-        stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc']
       });
+
+      const logStream = fs.createWriteStream(path.join(app.getPath('userData'), 'server_stdout.log'), { flags: 'a' });
+      serverProcess.stdout.pipe(logStream);
+      serverProcess.stderr.pipe(logStream);
 
       serverProcess.on('error', (err) => {
         console.error('Error en el proceso del servidor:', err);
@@ -71,9 +78,9 @@ function createWindow() {
 
       const timeoutId = setTimeout(() => {
         if (!serverStarted) {
-          console.error('El servidor no envió el mensaje de inicio después de 45 segundos.');
-          if (serverProcess) serverProcess.kill();
-          win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno no respondió a tiempo (Timeout 45s). Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
+          console.error('El servidor no envió el mensaje de inicio después de 45 segundos. Intentando cargar de todos modos...');
+          // Intentar cargar en el puerto 3000 por si acaso el IPC falló pero el servidor sí arrancó
+          checkServerAndLoad('http://localhost:3000', 0, true);
         }
       }, 45000);
 
@@ -82,7 +89,7 @@ function createWindow() {
           serverStarted = true;
           clearTimeout(timeoutId);
           console.log(`Servidor iniciado en el puerto ${msg.port}`);
-          checkServerAndLoad(`http://127.0.0.1:${msg.port}`);
+          checkServerAndLoad(`http://localhost:${msg.port}`);
         } else if (msg && msg.type === 'server-error') {
           serverStarted = true;
           clearTimeout(timeoutId);
@@ -99,7 +106,7 @@ function createWindow() {
       });
     }
   } else {
-    checkServerAndLoad('http://127.0.0.1:3000');
+    checkServerAndLoad('http://localhost:3000');
   }
 }
 
