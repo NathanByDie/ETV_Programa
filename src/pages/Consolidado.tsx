@@ -86,13 +86,18 @@ const getInitialData = (): ConsolidadoData => ({
 });
 
 const getApiUrl = (path: string) => {
-  if (typeof window !== 'undefined' && window.location && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
-    // Si estamos en Expo Web (puerto 8081), el backend está en el 3000
-    if (window.location.port === '8081') {
-      return `http://${window.location.hostname}:3000${path}`;
+  if (typeof window !== 'undefined' && window.location) {
+    if (window.location.protocol === 'file:') {
+      return `http://localhost:3000${path}`;
     }
-    // Para Vite y Electron, el frontend y backend comparten el mismo origen y puerto
-    return `${window.location.origin}${path}`;
+    if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+      // Si estamos en Expo Web (puerto 8081), el backend está en el 3000
+      if (window.location.port === '8081') {
+        return `http://${window.location.hostname}:3000${path}`;
+      }
+      // Para Vite y Electron, el frontend y backend comparten el mismo origen y puerto
+      return `${window.location.origin}${path}`;
+    }
   }
   // Fallback para móvil (React Native) o entornos sin window
   return `http://10.0.2.2:3000${path}`;

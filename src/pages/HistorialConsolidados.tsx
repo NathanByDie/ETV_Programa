@@ -8,11 +8,16 @@ import { api } from "../lib/api";
 import { useLoading } from "../contexts/LoadingContext";
 
 const getApiUrl = (path: string) => {
-  if (typeof window !== 'undefined' && window.location && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
-    if (window.location.port === '8081') {
-      return `http://${window.location.hostname}:3000${path}`;
+  if (typeof window !== 'undefined' && window.location) {
+    if (window.location.protocol === 'file:') {
+      return `http://localhost:3000${path}`;
     }
-    return `${window.location.origin}${path}`;
+    if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+      if (window.location.port === '8081') {
+        return `http://${window.location.hostname}:3000${path}`;
+      }
+      return `${window.location.origin}${path}`;
+    }
   }
   return `http://10.0.2.2:3000${path}`;
 };
