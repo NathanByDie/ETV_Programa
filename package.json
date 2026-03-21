@@ -5,7 +5,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "main": "main.cjs",
+  "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "dev": "tsx server.ts",
     "start": "expo start",
@@ -13,11 +13,11 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "windows": "react-native-windows",
-    "build": "vite build && npx esbuild server.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/server.mjs --external:express --external:vite --external:@whiskeysockets/baileys --external:@hapi/boom --external:qrcode --external:pino --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "build": "vite build && npx esbuild server.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/server.cjs --external:express --external:vite --external:@hapi/boom --external:qrcode --external:pino",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://127.0.0.1:3000 && electron .\"",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://127.0.0.1:3000 && electron main.cjs\"",
     "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
@@ -61,6 +61,7 @@
   },
   "devDependencies": {
     "@react-native-community/cli": "^20.1.2",
+    "@react-native/metro-config": "^0.84.1",
     "@types/express": "^4.17.21",
     "@types/node": "^20.12.0",
     "@types/qrcode": "^1.5.6",
@@ -79,17 +80,20 @@
     "wait-on": "^7.2.0"
   },
   "build": {
+    "extraMetadata": {
+      "main": "main.cjs"
+    },
     "appId": "com.etv.programa",
     "productName": "Programa ETV",
     "directories": {
       "output": "release"
     },
     "win": {
-      "icon": "src/assets/images/LogoAppETV.ico",
       "target": [
         "nsis",
         "portable"
-      ]
+      ],
+      "icon": "src/assets/images/LogoAppETV.ico"
     },
     "mac": {
       "icon": "src/assets/images/LogoAppETV.icns"

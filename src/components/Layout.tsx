@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Users, ClipboardList, Map, History, Target, FileSpreadsheet } from "lucide-react";
 import tw from "twrnc";
 import { useUnsavedChanges } from "../contexts/UnsavedChangesContext";
+import logoApp from "../assets/images/LogoAppETV.png";
+import logoMinsa from "../assets/images/MINSAlogoEncabezado.png";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -36,10 +38,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <View style={tw`bg-[#dcf0fa] pt-12 pb-4 px-4 z-20 flex-row items-center justify-between shrink-0`}>
         <View style={tw`flex-row items-center gap-4`}>
           <View style={tw`bg-white rounded p-1 shadow-sm`}>
-            {/* LogoApp removed */}
+            <Image source={{ uri: logoApp }} style={tw`w-10 h-10`} resizeMode="contain" />
           </View>
           <View style={tw`bg-transparent`}>
-            {/* LogoMinsa removed */}
+            <Image source={{ uri: logoMinsa }} style={tw`w-32 h-10`} resizeMode="contain" />
           </View>
         </View>
         <Text style={tw`text-xl font-bold text-blue-900`}>Gestor E.T.V.</Text>
