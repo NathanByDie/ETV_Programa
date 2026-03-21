@@ -143,8 +143,9 @@ async function connectToWhatsApp() {
                             console.error('Error removing auth info', e);
                         }
                         qrCodeDataUrl = null;
-                        lastError = "El código QR ha expirado. Haz clic en 'Generar nuevo QR' para intentar de nuevo.";
-                        // DO NOT automatically reconnect to avoid infinite loop
+                        lastError = null;
+                        console.log('QR expired, automatically generating a new one...');
+                        connectToWhatsApp();
                     } else if (statusCode === DisconnectReason.restartRequired) {
                         console.log('Restart required, restarting immediately...');
                         lastError = null; // Clear error so user doesn't see it

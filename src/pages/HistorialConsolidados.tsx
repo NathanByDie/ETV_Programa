@@ -7,6 +7,16 @@ import tw from "twrnc";
 import { api } from "../lib/api";
 import { useLoading } from "../contexts/LoadingContext";
 
+const getApiUrl = (path: string) => {
+  if (typeof window !== 'undefined' && window.location && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+    if (window.location.port === '8081') {
+      return `http://${window.location.hostname}:3000${path}`;
+    }
+    return `${window.location.origin}${path}`;
+  }
+  return `http://10.0.2.2:3000${path}`;
+};
+
 export default function HistorialConsolidados({ onClose }: { onClose?: () => void }) {
   const { setLoading } = useLoading();
   const [consolidados, setConsolidados] = useState<any[]>([]);
@@ -29,9 +39,15 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
     let interval: any;
     const checkWhatsappStatus = async () => {
       try {
-        const res = await fetch(`/api/whatsapp/status?t=${Date.now()}`);
+        const res = await fetch(getApiUrl(`/api/whatsapp/status?t=${Date.now()}`));
         if (!res.ok) throw new Error('Network response was not ok');
-        const statusData = await res.json();
+        const text = await res.text();
+        let statusData;
+        try {
+          statusData = JSON.parse(text);
+        } catch (e) {
+          throw new Error(`Respuesta inválida del servidor: ${text.substring(0, 100)}...`);
+        }
         setWhatsappStatus(statusData);
       } catch (error) {
         console.error("Error fetching WhatsApp status:", error);
@@ -162,7 +178,7 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
         setLoading(true, "Enviando por WhatsApp...");
         const message = `*CONSOLIDADO DE ACTIVIDADES (Reenvío)*\nFecha: ${selectedItem.fecha}\n\nAdjunto el consolidado en formato de imagen.`;
         
-        const res = await fetch('/api/whatsapp/send', {
+        const res = await fetch(getApiUrl('/api/whatsapp/send'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -172,7 +188,13 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
           })
         });
 
-        const result = await res.json();
+        const text = await res.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch (e) {
+          throw new Error(`Respuesta inválida del servidor al enviar: ${text.substring(0, 100)}...`);
+        }
         if (result.success) {
           alert("Consolidado reenviado exitosamente por WhatsApp");
         } else {
@@ -183,7 +205,7 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
         setLoading(true, "Enviando por WhatsApp...");
         const message = `*CONSOLIDADO DE ACTIVIDADES (Reenvío)*\nFecha: ${selectedItem.fecha}\n\n(La imagen del consolidado solo se puede generar en la versión web).`;
         
-        const res = await fetch('/api/whatsapp/send', {
+        const res = await fetch(getApiUrl('/api/whatsapp/send'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -192,11 +214,17 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
           })
         });
 
-        const result = await res.json();
-        if (result.success) {
+        const text2 = await res.text();
+        let result2;
+        try {
+          result2 = JSON.parse(text2);
+        } catch (e) {
+          throw new Error(`Respuesta inválida del servidor al enviar: ${text2.substring(0, 100)}...`);
+        }
+        if (result2.success) {
           alert("Consolidado reenviado exitosamente por WhatsApp");
         } else {
-          alert("Hubo un error al enviar WhatsApp: " + result.error);
+          alert("Hubo un error al enviar WhatsApp: " + result2.error);
         }
       }
     } catch (error) {

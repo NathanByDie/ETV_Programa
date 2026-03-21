@@ -86,11 +86,16 @@ const getInitialData = (): ConsolidadoData => ({
 });
 
 const getApiUrl = (path: string) => {
-  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+  if (typeof window !== 'undefined' && window.location && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+    // Si estamos en Expo Web (puerto 8081), el backend está en el 3000
+    if (window.location.port === '8081') {
+      return `http://${window.location.hostname}:3000${path}`;
+    }
+    // Para Vite y Electron, el frontend y backend comparten el mismo origen y puerto
     return `${window.location.origin}${path}`;
   }
-  // Fallback for file:// protocol (though API calls will likely fail due to CORS)
-  return `http://localhost:3000${path}`;
+  // Fallback para móvil (React Native) o entornos sin window
+  return `http://10.0.2.2:3000${path}`;
 };
 
 export default function Consolidado() {
@@ -123,7 +128,13 @@ export default function Consolidado() {
           }
           throw new Error(`Error del servidor: ${res.status}`);
         }
-        const statusData = await res.json();
+        const text = await res.text();
+        let statusData;
+        try {
+          statusData = JSON.parse(text);
+        } catch (e) {
+          throw new Error(`Respuesta inválida del servidor: ${text.substring(0, 100)}...`);
+        }
         setWhatsappStatus(statusData);
         if (statusData.isConnected) {
           setShowQR(false);
@@ -153,8 +164,13 @@ export default function Consolidado() {
       }
       const statusRes = await fetch(getApiUrl(`/api/whatsapp/status?t=${Date.now()}`)).catch(() => null);
       if (statusRes && statusRes.ok) {
-        const statusData = await statusRes.json();
-        setWhatsappStatus(statusData);
+        const text = await statusRes.text();
+        try {
+          const statusData = JSON.parse(text);
+          setWhatsappStatus(statusData);
+        } catch (e) {
+          console.error("Respuesta inválida al conectar:", text.substring(0, 100));
+        }
       }
     } catch (error: any) {
       console.error("Error connecting:", error);
@@ -270,7 +286,13 @@ export default function Consolidado() {
             })
           });
 
-          const result = await res.json();
+          const text = await res.text();
+          let result;
+          try {
+            result = JSON.parse(text);
+          } catch (e) {
+            throw new Error(`Respuesta inválida del servidor al enviar: ${text.substring(0, 100)}...`);
+          }
           if (result.success) {
             alert("Consolidado guardado y enviado exitosamente por WhatsApp");
           } else {
@@ -290,11 +312,17 @@ export default function Consolidado() {
             })
           });
 
-          const result = await res.json();
-          if (result.success) {
+          const text2 = await res.text();
+          let result2;
+          try {
+            result2 = JSON.parse(text2);
+          } catch (e) {
+            throw new Error(`Respuesta inválida del servidor al enviar: ${text2.substring(0, 100)}...`);
+          }
+          if (result2.success) {
             alert("Consolidado guardado y enviado exitosamente por WhatsApp");
           } else {
-            alert("Consolidado guardado, pero hubo un error al enviar WhatsApp: " + result.error);
+            alert("Consolidado guardado, pero hubo un error al enviar WhatsApp: " + result2.error);
           }
         }
       } else {
