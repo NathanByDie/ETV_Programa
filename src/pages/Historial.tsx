@@ -244,7 +244,7 @@ export default function Historial() {
   };
 
   const handlePrint = (item: Asignacion) => {
-    const date = item.fecha ? format(new Date(item.fecha), "dd 'de' MMMM, yyyy", { locale: es }) : "N/A";
+    const date = item.fecha ? format(new Date(item.fecha.includes('T') ? item.fecha : `${item.fecha}T12:00:00`), "dd 'de' MMMM, yyyy", { locale: es }) : "N/A";
     
     // Find the croquis and barrio that match this assignment
     let matchedCroquis = null;
@@ -618,7 +618,7 @@ export default function Historial() {
                   <View style={tw`flex-row items-center`}>
                     <Calendar size={14} color="#9ca3af" style={tw`mr-2`} />
                     <Text style={tw`text-sm text-gray-600`}>
-                      {item.fecha ? format(new Date(item.fecha), "dd MMM yyyy", { locale: es }) : "N/A"}
+                      {item.fecha ? format(new Date(item.fecha.includes('T') ? item.fecha : `${item.fecha}T12:00:00`), "dd MMM yyyy", { locale: es }) : "N/A"}
                     </Text>
                   </View>
                   <View style={tw`flex-row items-center`}>

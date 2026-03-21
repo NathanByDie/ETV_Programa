@@ -370,7 +370,7 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
               <div id="consolidado-receipt-history" style={{ width: '800px', backgroundColor: '#ffffff', padding: '40px', fontFamily: 'Arial, sans-serif', color: '#000' }}>
                 <h2 style={{ textAlign: 'center', marginBottom: '20px', fontSize: '20px', fontWeight: 'bold' }}>CONSOLIDADO DE ACTIVIDADES</h2>
               <div style={{ marginBottom: '20px', fontSize: '14px' }}>
-                <p><strong>Fecha:</strong> {selectedItem.fecha ? format(new Date(selectedItem.fecha), "dd 'de' MMMM, yyyy", { locale: es }) : ''}</p>
+                <p><strong>Fecha:</strong> {selectedItem.fecha ? format(new Date(selectedItem.fecha.includes('T') ? selectedItem.fecha : `${selectedItem.fecha}T12:00:00`), "dd 'de' MMMM, yyyy", { locale: es }) : ''}</p>
               </div>
               <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '600px' }}>
@@ -511,7 +511,7 @@ export default function HistorialConsolidados({ onClose }: { onClose?: () => voi
                   <View style={tw`flex-row items-center mb-1`}>
                     <Calendar size={16} color="#6b7280" style={tw`mr-2`} />
                     <Text style={tw`font-bold text-gray-800 text-lg`}>
-                      {item.fecha ? format(new Date(item.fecha), "dd MMM yyyy", { locale: es }) : "Sin fecha"}
+                      {item.fecha ? format(new Date(item.fecha.includes('T') ? item.fecha : `${item.fecha}T12:00:00`), "dd MMM yyyy", { locale: es }) : "Sin fecha"}
                     </Text>
                   </View>
                   {item.createdAt && (

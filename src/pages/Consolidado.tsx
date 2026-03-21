@@ -574,7 +574,7 @@ export default function Consolidado() {
           <div id="consolidado-receipt" style={{ width: '800px', backgroundColor: '#ffffff', padding: '40px', fontFamily: 'Arial, sans-serif', color: '#000' }}>
             <h2 style={{ textAlign: 'center', marginBottom: '20px', fontSize: '20px', fontWeight: 'bold' }}>CONSOLIDADO DE ACTIVIDADES</h2>
           <div style={{ marginBottom: '20px', fontSize: '14px' }}>
-            <p><strong>Fecha:</strong> {data.fecha ? format(new Date(data.fecha), "dd 'de' MMMM, yyyy", { locale: es }) : ''}</p>
+            <p><strong>Fecha:</strong> {data.fecha ? format(new Date(data.fecha.includes('T') ? data.fecha : `${data.fecha}T12:00:00`), "dd 'de' MMMM, yyyy", { locale: es }) : ''}</p>
           </div>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '600px' }}>
