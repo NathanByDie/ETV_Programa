@@ -50,7 +50,8 @@ function createWindow() {
         env: { 
           ...process.env,
           NODE_ENV: 'production',
-          USER_DATA_PATH: app.getPath('userData')
+          USER_DATA_PATH: app.getPath('userData'),
+          APP_DIST_PATH: path.join(__dirname, 'dist')
         },
         stdio: ['inherit', 'inherit', 'inherit', 'ipc']
       });
@@ -59,25 +60,33 @@ function createWindow() {
         console.error('Error en el proceso del servidor:', err);
       });
 
+      let serverStarted = false;
+
       serverProcess.on('exit', (code, signal) => {
         console.log(`El proceso del servidor salió con código ${code} y señal ${signal}`);
-        win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno se cerró inesperadamente (código ${code}). Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
+        if (!serverStarted) {
+          win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno se cerró inesperadamente (código ${code}). Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
+        }
       });
 
-      let serverStarted = false;
       const timeoutId = setTimeout(() => {
         if (!serverStarted) {
-          console.error('El servidor no envió el mensaje de inicio después de 15 segundos.');
-          win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno no respondió a tiempo. Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
+          console.error('El servidor no envió el mensaje de inicio después de 45 segundos.');
+          if (serverProcess) serverProcess.kill();
+          win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno no respondió a tiempo (Timeout 45s). Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
         }
-      }, 15000);
+      }, 45000);
 
       serverProcess.on('message', (msg) => {
         if (msg && msg.type === 'server-started') {
           serverStarted = true;
           clearTimeout(timeoutId);
           console.log(`Servidor iniciado en el puerto ${msg.port}`);
-          checkServerAndLoad(`http://localhost:${msg.port}`);
+          checkServerAndLoad(`http://127.0.0.1:${msg.port}`);
+        } else if (msg && msg.type === 'server-error') {
+          serverStarted = true;
+          clearTimeout(timeoutId);
+          win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>Error al iniciar el servidor: ${msg.error}. Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
         }
       });
       
@@ -90,7 +99,7 @@ function createWindow() {
       });
     }
   } else {
-    checkServerAndLoad('http://localhost:3000');
+    checkServerAndLoad('http://127.0.0.1:3000');
   }
 }
 

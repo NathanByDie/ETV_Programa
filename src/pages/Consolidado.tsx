@@ -103,14 +103,14 @@ export default function Consolidado() {
   const [showHistory, setShowHistory] = useState(false);
   const [whatsappStatus, setWhatsappStatus] = useState<{ isConnected: boolean; qrCode: string | null; error?: string | null }>({ isConnected: false, qrCode: null });
   const [showQR, setShowQR] = useState(false);
-  const [recipientPhone, setRecipientPhone] = useState("+505");
+  const [recipientPhone, setRecipientPhone] = useState("");
   const { setLoading } = useLoading();
 
   useEffect(() => {
     if (Platform.OS === 'web') {
       const savedPhone = localStorage.getItem('recipientPhone');
       if (savedPhone) {
-        setRecipientPhone(savedPhone);
+        setRecipientPhone(savedPhone.replace(/^\+505/, ''));
       }
     }
     
@@ -280,7 +280,7 @@ export default function Consolidado() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              phone: recipientPhone,
+              phone: '+505' + recipientPhone,
               message,
               image: base64Image
             })
@@ -307,7 +307,7 @@ export default function Consolidado() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              phone: recipientPhone,
+              phone: '+505' + recipientPhone,
               message
             })
           });
@@ -469,12 +469,12 @@ export default function Consolidado() {
                   </View>
                   <TextInput
                     style={tw`flex-1 px-3 py-2 text-gray-900`}
-                    value={recipientPhone.replace(/^\+505/, '')}
+                    value={recipientPhone}
                     onChangeText={(val) => {
-                      const newPhone = '+505' + val.replace(/[^0-9]/g, '');
+                      const newPhone = val.replace(/[^0-9]/g, '');
                       setRecipientPhone(newPhone);
                       if (Platform.OS === 'web') {
-                        localStorage.setItem('recipientPhone', newPhone);
+                        localStorage.setItem('recipientPhone', '+505' + newPhone);
                       }
                     }}
                     placeholder="12345678"

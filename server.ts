@@ -25,6 +25,9 @@ const serverLogPath = path.join(userDataPath, 'server_error.log');
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
     fs.appendFileSync(serverLogPath, `[${new Date().toISOString()}] Uncaught Exception: ${err.stack || err}\n`);
+    if (process.send) {
+        process.send({ type: 'server-error', error: err.message || String(err) });
+    }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -270,8 +273,8 @@ async function startServer() {
     } else {
         // En producción (Electron), currentDir apunta a la carpeta donde está server.js
         // Intentamos encontrar la carpeta dist de forma robusta
-        let distPath = currentDir;
-        if (path.basename(currentDir) !== 'dist') {
+        let distPath = process.env.APP_DIST_PATH || currentDir;
+        if (!process.env.APP_DIST_PATH && path.basename(currentDir) !== 'dist') {
             const potentialDist = path.join(currentDir, 'dist');
             if (fs.existsSync(potentialDist)) {
                 distPath = potentialDist;
@@ -305,20 +308,20 @@ async function startServer() {
         });
     }
 
-    const server = app.listen(PORT, "0.0.0.0", () => {
+    const server = app.listen(PORT, "127.0.0.1", () => {
         const address = server.address();
         const actualPort = typeof address === 'string' ? PORT : address?.port;
-        console.log(`Server running on http://0.0.0.0:${actualPort}`);
+        console.log(`Server running on http://127.0.0.1:${actualPort}`);
         if (process.send) {
             process.send({ type: 'server-started', port: actualPort });
         }
     }).on('error', (err: any) => {
         if (err.code === 'EADDRINUSE') {
             console.error(`Port ${PORT} is already in use. Trying a random port...`);
-            const fallbackServer = app.listen(0, "0.0.0.0", () => {
+            const fallbackServer = app.listen(0, "127.0.0.1", () => {
                 const address = fallbackServer.address();
                 const actualPort = typeof address === 'string' ? 0 : address?.port;
-                console.log(`Server running on fallback port http://0.0.0.0:${actualPort}`);
+                console.log(`Server running on fallback port http://127.0.0.1:${actualPort}`);
                 if (process.send) {
                     process.send({ type: 'server-started', port: actualPort });
                 }
@@ -326,6 +329,9 @@ async function startServer() {
         } else {
             console.error('Server error:', err);
             fs.appendFileSync(serverLogPath, `[${new Date().toISOString()}] Server error: ${err}\n`);
+            if (process.send) {
+                process.send({ type: 'server-error', error: err.message || String(err) });
+            }
         }
     });
 }
