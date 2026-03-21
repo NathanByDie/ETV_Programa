@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TouchableOpacity, TextInput, ScrollView } from "react-native";
 import { Stage, Layer, Line, Circle, Rect, Text as KonvaText, Group } from "react-konva";
-import { Trash2, MousePointer, PenTool, Square, Circle as CircleIcon, Map as MapIcon, Save, ZoomIn, ZoomOut, Move, Undo, Redo, XCircle, MapPin, Plus, Edit2, ChevronLeft, ListOrdered } from "lucide-react";
+import { Trash2, MousePointer, PenTool, Square, Circle as CircleIcon, Map as MapIcon, Save, ZoomIn, ZoomOut, Move, Undo, Redo, XCircle, MapPin, Plus, Edit2, ChevronLeft, ListOrdered, PanelRight } from "lucide-react";
 import tw from "twrnc";
 import { api } from "../lib/api";
 import { useUnsavedChanges } from "../contexts/UnsavedChangesContext";
@@ -41,6 +41,7 @@ export default function Croquis() {
   const [currentCroquisName, setCurrentCroquisName] = useState("Nuevo Croquis");
   const [croquisToDelete, setCroquisToDelete] = useState<string | null>(null);
   const [croquisToRename, setCroquisToRename] = useState<{id: string, name: string} | null>(null);
+  const [isPropertiesVisible, setIsPropertiesVisible] = useState(true);
 
   const [elements, setElements] = useState<Element[]>([]);
   const [tool, setTool] = useState<ToolType>('select');
@@ -641,21 +642,8 @@ export default function Croquis() {
     setCurrentPoints([]);
   };
 
-  // Efecto para guardar dibujo pendiente al cambiar de herramienta
-  useEffect(() => {
-    setCurrentPoints([]); // Limpiar puntos pendientes al cambiar herramienta
-  }, [tool]);
 
-  // Listen for Enter key to finish drawing
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        handleFinishDrawing();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPoints, tool, elements]);
+
 
   const changeTool = (newTool: ToolType) => {
     if (currentPoints.length >= 4) {
@@ -736,6 +724,24 @@ export default function Croquis() {
       }
     });
   };
+
+  // Listen for Enter key to finish drawing and Delete/Backspace to delete selected
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input or textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      if (e.key === 'Enter') {
+        handleFinishDrawing();
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+        deleteSelected();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentPoints, tool, elements, selectedId]);
 
   const renumberAllManzanas = () => {
     setElements(prevElements => {
@@ -955,14 +961,22 @@ export default function Croquis() {
             style={tw`text-lg font-bold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-sky-500 pb-1 min-w-[200px]`}
           />
         </View>
-        <TouchableOpacity
-          onPress={saveCroquis}
-          disabled={isLoading}
-          style={tw`bg-[#dcf0fa] px-4 py-2 rounded-lg flex-row items-center shadow-sm ${isLoading ? 'opacity-50' : ''}`}
-        >
-          <Save size={18} color="#1e3a8a" style={tw`mr-2`} />
-          <Text style={tw`text-blue-900 font-bold`}>{isLoading ? 'Guardando...' : 'Guardar Croquis'}</Text>
-        </TouchableOpacity>
+        <View style={tw`flex-row items-center gap-3`}>
+          <TouchableOpacity
+            onPress={() => setIsPropertiesVisible(!isPropertiesVisible)}
+            style={tw`bg-gray-100 p-2 rounded-lg flex-row items-center shadow-sm`}
+          >
+            <PanelRight size={20} color={isPropertiesVisible ? "#0284c7" : "#4b5563"} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={saveCroquis}
+            disabled={isLoading}
+            style={tw`bg-[#dcf0fa] px-4 py-2 rounded-lg flex-row items-center shadow-sm ${isLoading ? 'opacity-50' : ''}`}
+          >
+            <Save size={18} color="#1e3a8a" style={tw`mr-2`} />
+            <Text style={tw`text-blue-900 font-bold`}>{isLoading ? 'Guardando...' : 'Guardar Croquis'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={tw`flex-1 flex-row overflow-hidden`}>
@@ -1230,23 +1244,35 @@ export default function Croquis() {
                   const lastY = currentPoints[currentPoints.length - 1];
                   const midX = (lastX + cursorPos.x) / 2;
                   const midY = (lastY + cursorPos.y) / 2;
-                  const distance = Math.sqrt(Math.pow(cursorPos.x - lastX, 2) + Math.pow(cursorPos.y - lastY, 2));
-                  const distanceMeters = (distance / 10).toFixed(1); // Assuming 10px = 1m for display purposes
+                  
+                  let accumulatedDistance = 0;
+                  for (let i = 0; i < currentPoints.length - 2; i += 2) {
+                    const x1 = currentPoints[i];
+                    const y1 = currentPoints[i+1];
+                    const x2 = currentPoints[i+2];
+                    const y2 = currentPoints[i+3];
+                    accumulatedDistance += Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                  }
+                  
+                  const lastSegmentDistance = Math.sqrt(Math.pow(cursorPos.x - lastX, 2) + Math.pow(cursorPos.y - lastY, 2));
+                  accumulatedDistance += lastSegmentDistance;
+                  
+                  const distanceMeters = (accumulatedDistance / 10).toFixed(1); // Assuming 10px = 1m for display purposes
                   
                   return (
                     <Group x={midX} y={midY}>
                       <Rect
-                        x={-25 / stageScale}
+                        x={-30 / stageScale}
                         y={-10 / stageScale}
-                        width={50 / stageScale}
+                        width={60 / stageScale}
                         height={20 / stageScale}
                         fill="#ef4444"
                         cornerRadius={10 / stageScale}
                       />
                       <KonvaText
-                        x={-25 / stageScale}
+                        x={-30 / stageScale}
                         y={-6 / stageScale}
-                        width={50 / stageScale}
+                        width={60 / stageScale}
                         text={`${distanceMeters}m`}
                         fontSize={10 / stageScale}
                         fill="#ffffff"
@@ -1285,9 +1311,10 @@ export default function Croquis() {
       </View>
 
       {/* Properties Panel */}
-      <View style={tw`w-72 bg-white border-l border-gray-200 shadow-sm z-10 flex-col overflow-hidden`}>
-        <ScrollView style={tw`flex-1`} contentContainerStyle={tw`p-4 flex-grow pb-8`}>
-          <Text style={tw`text-lg font-bold text-gray-800 mb-4`}>Propiedades</Text>
+      {isPropertiesVisible && (
+        <View style={tw`w-72 bg-white border-l border-gray-200 shadow-sm z-10 flex-col overflow-hidden`}>
+          <ScrollView style={tw`flex-1`} contentContainerStyle={tw`p-4 flex-grow pb-8`}>
+            <Text style={tw`text-lg font-bold text-gray-800 mb-4`}>Propiedades</Text>
           
           {selectedId ? (
             <View style={tw`gap-4`}>
@@ -1414,6 +1441,7 @@ export default function Croquis() {
           </View>
         </ScrollView>
       </View>
+      )}
       </View>
       {/* Confirm Dialog */}
       {!!confirmDialog.visible && (

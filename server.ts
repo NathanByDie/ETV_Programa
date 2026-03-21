@@ -152,7 +152,9 @@ async function connectToWhatsApp() {
                     const isQrTimeout = errorMessage.includes('QR refs attempts ended');
                     const shouldReconnect = !isLoggedOut && !isBadSession && !isQrTimeout;
                     
-                    console.log('connection closed due to ', lastDisconnect?.error, ', reconnecting ', shouldReconnect);
+                    if (!isQrTimeout) {
+                        console.log('connection closed due to ', lastDisconnect?.error, ', reconnecting ', shouldReconnect);
+                    }
                     
                     if (isLoggedOut || isBadSession) {
                         try {
