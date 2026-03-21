@@ -48,54 +48,23 @@ function createWindow() {
       const serverPath = path.join(__dirname, 'dist', 'server.cjs');
       console.log('Iniciando servidor desde:', serverPath);
       
-      serverProcess = fork(serverPath, [], {
-        cwd: __dirname,
-        env: { 
-          ...process.env,
-          NODE_ENV: 'production',
-          USER_DATA_PATH: app.getPath('userData'),
-          APP_DIST_PATH: path.join(__dirname, 'dist')
-        },
-        stdio: ['ignore', 'pipe', 'pipe', 'ipc']
-      });
+      process.env.NODE_ENV = 'production';
+      process.env.USER_DATA_PATH = app.getPath('userData');
+      process.env.APP_DIST_PATH = path.join(__dirname, 'dist');
 
-      const logStream = fs.createWriteStream(path.join(app.getPath('userData'), 'server_stdout.log'), { flags: 'a' });
-      serverProcess.stdout.pipe(logStream);
-      serverProcess.stderr.pipe(logStream);
-
-      serverProcess.on('error', (err) => {
-        console.error('Error en el proceso del servidor:', err);
-      });
-
-      let serverStarted = false;
-
-      serverProcess.on('exit', (code, signal) => {
-        console.log(`El proceso del servidor salió con código ${code} y señal ${signal}`);
-        if (!serverStarted) {
-          win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>El servidor interno se cerró inesperadamente (código ${code}). Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
-        }
-      });
-
-      const timeoutId = setTimeout(() => {
-        if (!serverStarted) {
-          console.error('El servidor no envió el mensaje de inicio después de 45 segundos. Intentando cargar de todos modos...');
-          // Intentar cargar en el puerto 3000 por si acaso el IPC falló pero el servidor sí arrancó
-          checkServerAndLoad('http://localhost:3000', 0, true);
-        }
-      }, 45000);
-
-      serverProcess.on('message', (msg) => {
-        if (msg && msg.type === 'server-started') {
-          serverStarted = true;
-          clearTimeout(timeoutId);
-          console.log(`Servidor iniciado en el puerto ${msg.port}`);
-          checkServerAndLoad(`http://localhost:${msg.port}`);
-        } else if (msg && msg.type === 'server-error') {
-          serverStarted = true;
-          clearTimeout(timeoutId);
-          win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>Error al iniciar el servidor: ${msg.error}. Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
-        }
-      });
+      const serverModule = require(serverPath);
+      if (serverModule && serverModule.startServer) {
+        serverModule.startServer().then(port => {
+          console.log(`Servidor iniciado en el puerto ${port}`);
+          checkServerAndLoad(`http://localhost:${port}`);
+        }).catch(err => {
+          console.error('Error al iniciar el servidor:', err);
+          win.loadURL(`data:text/html;charset=utf-8,<h1>Error Crítico</h1><p>Error al iniciar el servidor: ${err.message}. Revisa los logs en ${app.getPath('userData')}</p>`).catch(e => console.error(e));
+        });
+      } else {
+        console.error('El módulo del servidor no exporta startServer, intentando cargar de todos modos...');
+        checkServerAndLoad('http://localhost:3000');
+      }
       
       // checkServerAndLoad('http://localhost:3000'); // Removed hardcoded port
     } catch (err) {

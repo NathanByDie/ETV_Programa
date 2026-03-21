@@ -286,7 +286,7 @@ const getDirname = () => {
 
 const currentDir = getDirname();
 
-async function startServer() {
+export async function startServer(): Promise<number> {
     debugLog('startServer called');
     if (process.env.NODE_ENV !== "production") {
         const { createServer: createViteServer } = await import("vite");
@@ -333,53 +333,60 @@ async function startServer() {
         });
     }
 
-    debugLog(`Attempting to listen on localhost:${PORT}`);
-    const server = app.listen(PORT, "localhost", () => {
-        const address = server.address();
-        const actualPort = typeof address === 'string' ? PORT : address?.port;
-        debugLog(`Server listening successfully on port ${actualPort}`);
-        console.log(`Server running on http://localhost:${actualPort}`);
-        if (process.send) {
-            debugLog('Sending server-started message via IPC');
-            try {
-                process.send({ type: 'server-started', port: actualPort });
-            } catch (e: any) {
-                debugLog(`Error sending IPC message: ${e.message}`);
+    return new Promise((resolve, reject) => {
+        debugLog(`Attempting to listen on localhost:${PORT}`);
+        const server = app.listen(PORT, "localhost", () => {
+            const address = server.address();
+            const actualPort = typeof address === 'string' ? PORT : address?.port;
+            debugLog(`Server listening successfully on port ${actualPort}`);
+            console.log(`Server running on http://localhost:${actualPort}`);
+            if (process.send) {
+                debugLog('Sending server-started message via IPC');
+                try {
+                    process.send({ type: 'server-started', port: actualPort });
+                } catch (e: any) {
+                    debugLog(`Error sending IPC message: ${e.message}`);
+                }
+            } else {
+                debugLog('process.send is undefined, cannot send IPC message');
             }
-        } else {
-            debugLog('process.send is undefined, cannot send IPC message');
-        }
-    }).on('error', (err: any) => {
-        debugLog(`Server listen error: ${err.message}`);
-        if (err.code === 'EADDRINUSE') {
-            console.error(`Port ${PORT} is already in use. Trying a random port...`);
-            const fallbackServer = app.listen(0, "localhost", () => {
-                const address = fallbackServer.address();
-                const actualPort = typeof address === 'string' ? 0 : address?.port;
-                console.log(`Server running on fallback port http://localhost:${actualPort}`);
+            resolve(actualPort);
+        }).on('error', (err: any) => {
+            debugLog(`Server listen error: ${err.message}`);
+            if (err.code === 'EADDRINUSE') {
+                console.error(`Port ${PORT} is already in use. Trying a random port...`);
+                const fallbackServer = app.listen(0, "localhost", () => {
+                    const address = fallbackServer.address();
+                    const actualPort = typeof address === 'string' ? 0 : address?.port;
+                    console.log(`Server running on fallback port http://localhost:${actualPort}`);
+                    if (process.send) {
+                        try {
+                            process.send({ type: 'server-started', port: actualPort });
+                        } catch (e: any) {
+                            debugLog(`Error sending IPC message: ${e.message}`);
+                        }
+                    }
+                    resolve(actualPort);
+                });
+            } else {
+                console.error('Server error:', err);
+                fs.appendFileSync(serverLogPath, `[${new Date().toISOString()}] Server error: ${err}\n`);
                 if (process.send) {
                     try {
-                        process.send({ type: 'server-started', port: actualPort });
+                        process.send({ type: 'server-error', error: err.message || String(err) });
                     } catch (e: any) {
                         debugLog(`Error sending IPC message: ${e.message}`);
                     }
                 }
-            });
-        } else {
-            console.error('Server error:', err);
-            fs.appendFileSync(serverLogPath, `[${new Date().toISOString()}] Server error: ${err}\n`);
-            if (process.send) {
-                try {
-                    process.send({ type: 'server-error', error: err.message || String(err) });
-                } catch (e: any) {
-                    debugLog(`Error sending IPC message: ${e.message}`);
-                }
+                reject(err);
             }
-        }
+        });
     });
 }
 
-debugLog('Calling startServer');
-startServer().catch(err => {
-    debugLog(`startServer failed: ${err.message}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+    debugLog('Calling startServer');
+    startServer().catch(err => {
+        debugLog(`startServer failed: ${err.message}`);
+    });
+}
